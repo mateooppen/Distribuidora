@@ -1,0 +1,26 @@
+{
+  "name": "lialg-db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Base de datos SQLite de productos sin TACC en Argentina (LIALG / ANMAT). Etapa 4.A.3.",
+  "type": "module",
+  "scripts": {
+    "db:init": "tsx src/scripts/init-db.ts",
+    "db:import": "tsx src/scripts/import-anmat.ts",
+    "db:stats": "tsx src/scripts/stats.ts",
+    "db:reset": "npm run db:init && npm run db:import",
+    "db:diagnose": "tsx src/scripts/diagnose-marcas.ts",
+    "db:merge": "tsx src/scripts/apply-merge.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "csv-parse": "^5.5.6",
+    "kysely": "^0.27.4"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

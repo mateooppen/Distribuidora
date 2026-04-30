@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# SQLite databases (no commitear)
+db/*.db
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
+
+# Datasets crudos (no commitear)
+data/*.csv
+data/*.json
+data/*.xls
+data/*.xlsx
+
+# Variables de entorno
+.env
+.env.local
+
+# Editores / IDE / herramientas
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
