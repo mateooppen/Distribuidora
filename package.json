@@ -11,7 +11,9 @@
     "db:reset": "npm run db:init && npm run db:import",
     "db:diagnose": "tsx src/scripts/diagnose-marcas.ts",
     "db:merge": "tsx src/scripts/apply-merge.ts",
-    "db:auto-merge": "tsx src/scripts/auto-merge-marcas.ts"
+    "db:auto-merge": "tsx src/scripts/auto-merge-marcas.ts",
+    "db:scrape": "tsx src/scripts/scrape-lialg.ts",
+    "db:sync": "tsx src/scripts/sync-lialg.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.5.0",
