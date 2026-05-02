@@ -1,0 +1,23 @@
+{
+  "name": "lialg-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API HTTP del dashboard LIALG (Fastify + better-sqlite3 + Kysely)",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "better-sqlite3": "^11.5.0",
+    "fastify": "^5.1.0",
+    "kysely": "^0.27.4"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
