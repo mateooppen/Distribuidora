@@ -16,7 +16,7 @@ export type EstadoCertificacion =
   | 'en_tramite'
   | 'desconocido'
 
-export type SortKey = 'nombre' | 'marca' | 'fecha'
+export type SortKey = 'nombre' | 'marca'
 export type SortOrder = 'asc' | 'desc'
 
 export interface ProductoListItem {

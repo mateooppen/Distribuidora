@@ -86,7 +86,7 @@ Base: `http://localhost:3001`
 | Método | Path | Descripción |
 |---|---|---|
 | GET | `/api/health` | Healthcheck → `{ ok: true }` |
-| GET | `/api/productos` | Listado paginado con filtros y orden. Query params: `q`, `marca`, `estado`, `sort` (`nombre\|marca\|fecha`), `order` (`asc\|desc`), `page`, `pageSize` (máx 200). |
+| GET | `/api/productos` | Listado paginado con filtros y orden. Query params: `q`, `marca`, `estado`, `sort` (`nombre\|marca`), `order` (`asc\|desc`), `page`, `pageSize` (máx 200). |
 | GET | `/api/productos/:id` | Detalle completo: producto + marca + categoría + presentaciones + aptitudes + últimas 10 verificaciones |
 | GET | `/api/marcas` | Listado paginado con conteo de productos. Query params: `q`, `sort` (`nombre\|productos`), `order`, `page`, `pageSize` |
 | GET | `/api/filtros/marcas` | Lista alfabética simple de marcas (id + nombre). Para popular el dropdown del filtro. |

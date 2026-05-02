@@ -17,7 +17,7 @@ import {
   type SortKey,
 } from '@/lib/api'
 
-const SORT_IDS: readonly SortKey[] = ['nombre', 'marca', 'fecha']
+const SORT_IDS: readonly SortKey[] = ['nombre', 'marca']
 
 export function ProductosPage() {
   const [searchParams, setSearchParams] = useSearchParams()

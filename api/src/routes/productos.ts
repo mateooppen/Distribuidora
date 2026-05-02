@@ -6,8 +6,8 @@
  *                              numero_registro y nombre_marca)
  *   marca?     — id_marca exacto
  *   estado?    — estado_certificacion exacto
- *   sort?      — 'nombre' | 'marca' | 'fecha'  (default 'nombre')
- *   order?     — 'asc' | 'desc'                (default 'asc')
+ *   sort?      — 'nombre' | 'marca'  (default 'nombre')
+ *   order?     — 'asc' | 'desc'      (default 'asc')
  *   page?      — 1-based, default 1
  *   pageSize?  — default 50, máx 200
  *
@@ -27,7 +27,6 @@ import type { EstadoCertificacion } from '../../../src/db/types.js';
 const SORT_COLUMNS = {
   nombre: 'p.nombre_producto',
   marca: 'm.nombre_marca',
-  fecha: 'p.updated_at',
 } as const;
 type SortKey = keyof typeof SORT_COLUMNS;
 

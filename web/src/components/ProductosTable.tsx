@@ -104,18 +104,6 @@ const columns: ColumnDef<ProductoListItem>[] = [
     enableSorting: false,
     cell: ({ row }) => <EstadoBadge estado={row.original.estado_certificacion} />,
   },
-  {
-    id: 'fecha',
-    accessorKey: 'updated_at',
-    header: 'Última actualización',
-    enableSorting: true,
-    cell: ({ row }) =>
-      new Date(row.original.updated_at).toLocaleDateString('es-AR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }),
-  },
 ]
 
 // ── Componente ────────────────────────────────────────────────────────────
