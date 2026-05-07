@@ -1,23 +1,30 @@
 /**
- * Etapa 5.B.pre — Reasignación de marca para productos con placeholder "No Registra".
+ * Reasignación de marca para productos con placeholder "No Registra".
  *
  * ANMAT deja el campo marca vacío en ~1.600 productos; la marca real suele estar
- * codificada en nombre_fantasia con dos patrones distintos:
+ * codificada en nombre_fantasia (o nombre_producto) con dos mecanismos:
+ *
+ * Pasada A — heurística de separadores:
  *   1. "MARCA- descripción..."        → marca al inicio (primer segmento ≤ 2 palabras)
  *   2. "descripción... - MARCA"       → marca al final  (último segmento ≤ 2 palabras)
  *   3. Sin guión, ≤ 2 palabras        → toda la fantasía es la marca
+ *   Desempate: si ambos segmentos son cortos, se usa el que NO sea falso positivo.
  *
- * Casos ambiguos o donde el segmento extraído es un falso positivo (p.ej.
- * "GLUTEN FREE", "SIN TACC") quedan sin tocar.
+ * Pasada B — lista manual de substrings:
+ *   Para marcas conocidas que no siguen los patrones anteriores, se busca el
+ *   substring en nombre_fantasia y nombre_producto (case-insensitive).
+ *   Cada entrada mapea un substring a un nombre de marca normalizado.
  *
  * Uso:
  *   npm run db:fix-marcas             → dry-run: muestra plan sin aplicar
  *   npm run db:fix-marcas -- --apply  → aplica los cambios
  */
 
+import type { Database } from 'better-sqlite3';
 import { createDb } from '../db/connection.js';
 import { normalizeMarca, slugify } from '../lib/normalize.js';
 import { log } from '../lib/logger.js';
+import { MARCAS_SUBSTRING_MAP } from '../data/marcas-substring-map.js';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -95,6 +102,9 @@ function extractCandidato(fantasia: string): string | null {
   return null;
 }
 
+// La tabla de substrings → marca vive en src/data/marcas-substring-map.ts.
+// Importada arriba como MARCAS_SUBSTRING_MAP.
+
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface ProductoRow {
@@ -117,7 +127,32 @@ interface Op {
   candidato: string;
   marca_normalizada: string;
   slug: string;
+  fuente: string;
   marca_existente: MarcaRow | null;
+}
+
+// ── Helpers de resolución de marca ───────────────────────────────────────────
+
+function resolverMarcaExistente(sqlite: Database, slug: string): MarcaRow | null {
+  return sqlite.prepare(
+    `SELECT id_marca, nombre_marca FROM marcas WHERE slug = ?`,
+  ).get(slug) as MarcaRow | undefined ?? null;
+}
+
+function buildOp(sqlite: Database, p: ProductoRow, candidato: string, fuente: string): Op {
+  const marca_normalizada = normalizeMarca(candidato);
+  const slug = slugify(marca_normalizada);
+  return {
+    id_producto:     p.id_producto,
+    nombre_producto: p.nombre_producto,
+    numero_registro: p.numero_registro,
+    fantasia:        p.nombre_fantasia ?? '',
+    candidato,
+    marca_normalizada,
+    slug,
+    fuente,
+    marca_existente: resolverMarcaExistente(sqlite, slug),
+  };
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -128,47 +163,54 @@ function main(): void {
 
   const { sqlite } = createDb();
 
-  // 1. Traer todos los productos con marca placeholder y fantasía no vacía.
+  // 1. Traer todos los productos con marca placeholder (con o sin fantasía).
   const productos = sqlite.prepare(`
     SELECT p.id_producto, p.nombre_producto, p.nombre_fantasia, p.numero_registro
     FROM productos p
     JOIN marcas m ON m.id_marca = p.id_marca
     WHERE lower(m.nombre_marca) IN (${[...PLACEHOLDER_MARCAS].map(() => '?').join(',')})
-      AND p.nombre_fantasia IS NOT NULL
-      AND trim(p.nombre_fantasia) != ''
   `).all(...PLACEHOLDER_MARCAS) as ProductoRow[];
 
-  log.info(`Productos con marca placeholder y fantasía: ${productos.length}`);
+  log.info(`Productos con marca placeholder: ${productos.length}`);
 
-  // 2. Planificar operaciones.
+  // 2. Planificar — pasada A (heurística) y pasada B (substrings manuales).
   const ops: Op[] = [];
-  let sin_candidato = 0;
+  const yaAsignados = new Set<number>(); // id_producto ya cubiertos
+  let sin_candidato_a = 0;
+  let sin_candidato_b = 0;
 
+  // Pasada A: heurística de separadores sobre nombre_fantasia
   for (const p of productos) {
+    if (!p.nombre_fantasia?.trim()) continue;
     const candidato = extractCandidato(p.nombre_fantasia);
-    if (!candidato) { sin_candidato++; continue; }
+    if (!candidato) { sin_candidato_a++; continue; }
+    const op = buildOp(sqlite, p, candidato, 'heuristica');
+    if (!op.slug) { sin_candidato_a++; continue; }
+    ops.push(op);
+    yaAsignados.add(p.id_producto);
+  }
 
-    const marca_normalizada = normalizeMarca(candidato);
-    const slug = slugify(marca_normalizada);
-    if (!slug) { sin_candidato++; continue; }
-
-    const marcaExistente = sqlite.prepare(
-      `SELECT id_marca, nombre_marca FROM marcas WHERE slug = ?`,
-    ).get(slug) as MarcaRow | undefined ?? null;
-
-    ops.push({
-      id_producto:      p.id_producto,
-      nombre_producto:  p.nombre_producto,
-      numero_registro:  p.numero_registro,
-      fantasia:         p.nombre_fantasia,
-      candidato,
-      marca_normalizada,
-      slug,
-      marca_existente:  marcaExistente,
-    });
+  // Pasada B: búsqueda manual por substrings en fantasia y nombre_producto
+  for (const p of productos) {
+    if (yaAsignados.has(p.id_producto)) continue;
+    const haystack = [p.nombre_fantasia ?? '', p.nombre_producto].join(' ').toLowerCase();
+    let matched = false;
+    for (const [substr, nombreMarca] of MARCAS_SUBSTRING_MAP) {
+      if (haystack.includes(substr.toLowerCase())) {
+        const op = buildOp(sqlite, p, nombreMarca, `substring:"${substr}"`);
+        if (!op.slug) continue;
+        ops.push(op);
+        yaAsignados.add(p.id_producto);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) sin_candidato_b++;
   }
 
   // 3. Resumen
+  const ops_a = ops.filter(o => o.fuente === 'heuristica');
+  const ops_b = ops.filter(o => o.fuente !== 'heuristica');
   const ops_nueva_marca    = ops.filter(o => o.marca_existente === null);
   const ops_marca_existente = ops.filter(o => o.marca_existente !== null);
 
@@ -184,40 +226,32 @@ function main(): void {
   const topMarcas = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25);
 
   console.log('\n╔══════════════════════════════════════════════════════════╗');
-  console.log('║  PLAN DE REASIGNACIÓN DE MARCAS (Fase A)                ║');
+  console.log('║  PLAN DE REASIGNACIÓN DE MARCAS                         ║');
   console.log('╚══════════════════════════════════════════════════════════╝');
-  console.log(`\nProductos a reasignar:          ${ops.length}`);
+  console.log(`\nTotal a reasignar:              ${ops.length}`);
+  console.log(`  Pasada A (heurística):         ${ops_a.length}`);
+  console.log(`  Pasada B (substrings manuales):${ops_b.length}`);
   console.log(`  → Marca ya existente en DB:    ${ops_marca_existente.length}`);
   console.log(`  → Marca nueva (a crear):       ${ops_nueva_marca.length}`);
   console.log(`  Marcas nuevas únicas:          ${marcas_a_crear.size}`);
-  console.log(`Sin candidato extraíble:         ${sin_candidato}`);
+  console.log(`Sin candidato (A):               ${sin_candidato_a}`);
+  console.log(`Sin candidato (B):               ${sin_candidato_b}`);
 
-  console.log('\n[Top 25 marcas candidatas por frecuencia]:');
+  console.log('\n[Top 25 marcas por frecuencia]:');
   for (const [marca, cnt] of topMarcas) {
     const existe = ops.find(o => o.marca_normalizada === marca)?.marca_existente;
     const tag = existe ? `(existe: id=${existe.id_marca})` : '(nueva)';
     console.log(`  ${cnt.toString().padStart(4)} × "${marca}" ${tag}`);
   }
 
-  console.log('\n[Marcas nuevas a crear]:');
-  const marcasCrearEntries = [...marcas_a_crear.entries()]
-    .map(([slug, nombre]) => ({ slug, nombre, cnt: freq.get(nombre) ?? 0 }))
-    .sort((a, b) => b.cnt - a.cnt);
-  for (const { slug, nombre, cnt } of marcasCrearEntries.slice(0, 40)) {
-    console.log(`  ${cnt.toString().padStart(4)} productos → "${nombre}" (slug: ${slug})`);
-  }
-  if (marcas_a_crear.size > 40) {
-    console.log(`  ... y ${marcas_a_crear.size - 40} más`);
-  }
-
-  console.log('\n[Muestra de reasignaciones — primeras 20]:');
-  for (const o of ops.slice(0, 20)) {
+  console.log('\n[Muestra pasada B — primeras 20]:');
+  for (const o of ops_b.slice(0, 20)) {
     const destino = o.marca_existente
       ? `→ "${o.marca_existente.nombre_marca}" (id=${o.marca_existente.id_marca})`
       : `→ NUEVA "${o.marca_normalizada}"`;
     console.log(`  [${o.numero_registro ?? '—'}] ${o.nombre_producto.slice(0, 50)}`);
     console.log(`    fantasia: "${o.fantasia.slice(0, 70)}"`);
-    console.log(`    ${destino}`);
+    console.log(`    fuente: ${o.fuente}  ${destino}`);
   }
 
   if (!isApply) {
@@ -265,9 +299,34 @@ function main(): void {
       }
     }
 
+    // Pasada C: corregir marcas sucias creadas en iteraciones anteriores
+    // Cada entrada: [slug_sucio, slug_correcto]
+    const MERGES_MARCAS_SUCIAS: [string, string][] = [
+      ['schar-gluten-free-snackies', 'schar'],
+    ];
+    let merges_aplicados = 0;
+    for (const [slugSucio, slugCorrect] of MERGES_MARCAS_SUCIAS) {
+      const marcaSucia = sqlite.prepare(
+        `SELECT id_marca FROM marcas WHERE slug = ?`,
+      ).get(slugSucio) as { id_marca: number } | undefined;
+      const marcaCorrecta = sqlite.prepare(
+        `SELECT id_marca FROM marcas WHERE slug = ?`,
+      ).get(slugCorrect) as { id_marca: number } | undefined;
+
+      if (marcaSucia && marcaCorrecta) {
+        const moved = sqlite.prepare(
+          `UPDATE productos SET id_marca = ? WHERE id_marca = ?`,
+        ).run(marcaCorrecta.id_marca, marcaSucia.id_marca);
+        sqlite.prepare(`DELETE FROM marcas WHERE id_marca = ?`).run(marcaSucia.id_marca);
+        merges_aplicados++;
+        log.info(`  Merge: "${slugSucio}" → "${slugCorrect}" (${moved.changes} productos)`);
+      }
+    }
+
     log.info(`\nResultado:`);
     log.info(`  Productos reasignados: ${reasignados}`);
     log.info(`  Marcas nuevas creadas: ${marcas_creadas}`);
+    log.info(`  Merges de marcas sucias: ${merges_aplicados}`);
     log.info(`  Errores:               ${errores}`);
   });
 

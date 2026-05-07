@@ -11,6 +11,8 @@ const SIGLAS_PRESERVAR = new Set([
   'I.C.S.A.', 'I.C.', 'C.I.', 'S.A.I.', 'S.A.I.C.A.',
   'SA', 'SRL', 'SAS', 'SCA', 'SCS', 'SH', 'SAU',
   'SACIF', 'SACI', 'SAIC', 'SAICF', 'ICSA',
+  // Siglas usadas como marcas en el dataset
+  'HD', 'IO', 'MD', 'WPN', 'AMPK', 'NAT', 'MCT', 'CLA', 'RAD',
 ]);
 
 const CONECTORES_LOWER = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y', 'e', 'en']);
@@ -37,6 +39,10 @@ export function normalizeMarca(raw: string | null | undefined): string {
     .map((token, idx) => {
       if (token.includes('-')) {
         return token.split('-').map((p, i) => titleCaseWord(p, idx === 0 && i === 0)).join('-');
+      }
+      // El símbolo '+' separa sub-tokens que se capitalizan independientemente.
+      if (token.includes('+')) {
+        return token.split('+').map((p, i) => titleCaseWord(p, idx === 0 && i === 0)).join('+');
       }
       return titleCaseWord(token, idx === 0);
     })
