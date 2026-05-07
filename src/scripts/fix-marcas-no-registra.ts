@@ -32,6 +32,8 @@ const FALSOS_POSITIVOS = new Set([
   'gluten free', 'sin gluten', 'libre de gluten', 'sin tacc',
   'zero', 'pluss', 'detox', 'premium', 'natural', 'organic',
   'light', 'diet', 'original', 'classic', 'extra',
+  // Tipos de producto que aparecen al inicio de la fantasía en lugar de la marca
+  'oyster sauce', 'soy sauce', 'teriyaki', 'fish sauce',
 ]);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,7 +70,19 @@ function extractCandidato(fantasia: string): string | null {
       return esFalsoPositivo(ultimoSeg) ? null : ultimoSeg;
     }
 
-    // Ambiguo (ambos cortos o ambos largos): no tocar
+    // Ambos cortos: desempatar con falsos positivos.
+    // Si el último es falso positivo pero el primero no → marca al inicio (ej: "SCHAR- ... - PREMIUM").
+    // Si el primero es falso positivo pero el último no → marca al final.
+    if (palabrasPrimero <= 2 && palabrasUltimo <= 2) {
+      const primerEsFP = esFalsoPositivo(primerSeg);
+      const ultimoEsFP = esFalsoPositivo(ultimoSeg);
+      if (!primerEsFP && ultimoEsFP) return primerSeg;
+      if (primerEsFP && !ultimoEsFP) return ultimoSeg;
+      // Ambos son falsos positivos, o ninguno → no tocar
+      return null;
+    }
+
+    // Ambos largos: no tocar
     return null;
   }
 
