@@ -1,18 +1,16 @@
-/**
- * Filtros del listado de productos: input de texto + combobox de marca + dropdown de estado.
- */
-
 import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { MarcaCombobox } from '@/components/MarcaCombobox'
-import { type EstadoCertificacion } from '@/lib/api'
+import { type CategoriaFiltro } from '@/lib/api'
 
 const TODOS = '__todos__'
 
@@ -21,29 +19,27 @@ export interface FiltrosProps {
   onSearchChange: (v: string) => void
   marca: number | null
   onMarcaChange: (v: number | null) => void
-  estado: EstadoCertificacion | null
-  onEstadoChange: (v: EstadoCertificacion | null) => void
+  categoria: string | null
+  onCategoriaChange: (v: string | null) => void
+  categorias: CategoriaFiltro[]
   total?: number
 }
-
-const ESTADOS: { value: EstadoCertificacion; label: string }[] = [
-  { value: 'vigente',         label: 'Vigente' },
-  { value: 'baja_provisoria', label: 'Baja provisoria' },
-  { value: 'baja_permanente', label: 'Baja permanente' },
-  { value: 'en_tramite',      label: 'En trámite' },
-  { value: 'desconocido',     label: 'Desconocido' },
-]
 
 export function Filtros({
   search,
   onSearchChange,
   marca,
   onMarcaChange,
-  estado,
-  onEstadoChange,
+  categoria,
+  onCategoriaChange,
+  categorias,
   total,
 }: FiltrosProps) {
-  const tieneFiltros = !!search || marca !== null || estado !== null
+  const tieneFiltros = !!search || marca !== null || categoria !== null
+
+  const padres = categorias.filter((c) => c.id_padre === null)
+  const hijasPor = (idPadre: number) =>
+    categorias.filter((c) => c.id_padre === idPadre)
 
   return (
     <div className="flex flex-col gap-3 mb-4">
@@ -63,21 +59,30 @@ export function Filtros({
         />
 
         <Select
-          value={estado ?? TODOS}
-          onValueChange={(v) =>
-            onEstadoChange(v === TODOS ? null : (v as EstadoCertificacion))
-          }
+          value={categoria ?? TODOS}
+          onValueChange={(v) => onCategoriaChange(v === TODOS ? null : v)}
         >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Estado" />
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Categoría" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={TODOS}>Todos los estados</SelectItem>
-            {ESTADOS.map((e) => (
-              <SelectItem key={e.value} value={e.value}>
-                {e.label}
-              </SelectItem>
-            ))}
+            <SelectItem value={TODOS}>Todas las categorías</SelectItem>
+            {padres.map((padre) => {
+              const hijas = hijasPor(padre.id_categoria)
+              return (
+                <SelectGroup key={padre.id_categoria}>
+                  <SelectLabel className="font-semibold">{padre.nombre}</SelectLabel>
+                  <SelectItem value={padre.slug}>
+                    — Todas ({padre.nombre})
+                  </SelectItem>
+                  {hijas.map((h) => (
+                    <SelectItem key={h.id_categoria} value={h.slug}>
+                      &nbsp;&nbsp;{h.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )
+            })}
           </SelectContent>
         </Select>
 
@@ -88,7 +93,7 @@ export function Filtros({
             onClick={() => {
               onSearchChange('')
               onMarcaChange(null)
-              onEstadoChange(null)
+              onCategoriaChange(null)
             }}
           >
             Limpiar

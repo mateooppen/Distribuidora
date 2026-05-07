@@ -34,10 +34,51 @@ export interface ProductosFilters {
   q?: string
   marca?: number | null
   estado?: EstadoCertificacion | null
+  categoria?: string | null
   sort?: SortKey
   order?: SortOrder
   page?: number
   pageSize?: number
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+
+export interface DashboardResumen {
+  productos: number
+  marcas: number
+  categorias: number
+}
+
+export interface DashboardResumenResponse {
+  productos: number
+  marcas: number
+  categorias: number
+}
+
+export interface CategoriaNode {
+  id_categoria: number
+  id_padre: number | null
+  nombre: string
+  slug: string
+  orden: number
+  total_productos: number
+  hijos: CategoriaNode[]
+}
+
+export interface DashboardCategoriasResponse {
+  data: CategoriaNode[]
+}
+
+export interface CategoriaFiltro {
+  id_categoria: number
+  id_padre: number | null
+  nombre: string
+  slug: string
+  orden: number
+}
+
+export interface FiltrosCategoriasResponse {
+  data: CategoriaFiltro[]
 }
 
 export interface ProductosResponse {
@@ -216,11 +257,20 @@ function buildQuery(params: Record<string, unknown>): string {
 export const api = {
   health: () => get<{ ok: boolean }>('/api/health'),
 
+  dashboardResumen: () => get<DashboardResumenResponse>('/api/dashboard/resumen'),
+
+  dashboardCategoriasJerarquia: () =>
+    get<DashboardCategoriasResponse>('/api/dashboard/categorias-jerarquia'),
+
+  filtrosCategorias: () =>
+    get<FiltrosCategoriasResponse>('/api/filtros/categorias'),
+
   productos: (filters: ProductosFilters = {}) => {
     const query = buildQuery({
       q: filters.q,
       marca: filters.marca,
       estado: filters.estado,
+      categoria: filters.categoria,
       sort: filters.sort,
       order: filters.order,
       page: filters.page,

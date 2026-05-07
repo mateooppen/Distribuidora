@@ -1,13 +1,16 @@
 /**
- * Endpoints de soporte para los filtros del dashboard.
+ * Endpoints de soporte para los filtros.
  *
  * GET /filtros/marcas
  *   q?      — filtro por nombre (LIKE %x%)
  *   limit?  — default 30, máx 200
- *
  *   Sin q: devuelve top-N marcas ordenadas por cantidad de productos (desc).
  *   Con q: devuelve matches del nombre, también ordenados por cantidad.
  *   Pensado para popular un combobox con autocomplete.
+ *
+ * GET /filtros/categorias
+ *   Devuelve las 36 categorías (planas, con id_padre) ordenadas por orden.
+ *   El frontend arma el árbol y la indentación.
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -52,6 +55,16 @@ const filtrosRoutes: FastifyPluginAsync = async (fastify) => {
       };
     },
   );
+
+  fastify.get('/filtros/categorias', async () => {
+    const data = await db
+      .selectFrom('categorias')
+      .select(['id_categoria', 'id_padre', 'nombre', 'slug', 'orden'])
+      .orderBy('orden', 'asc')
+      .orderBy('nombre', 'asc')
+      .execute();
+    return { data };
+  });
 };
 
 export default filtrosRoutes;

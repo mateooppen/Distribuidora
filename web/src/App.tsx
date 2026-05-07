@@ -1,4 +1,5 @@
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
+import { HomePage } from '@/pages/HomePage'
 import { ProductosPage } from '@/pages/ProductosPage'
 import { MarcasPage } from '@/pages/MarcasPage'
 import { cn } from '@/lib/utils'
@@ -19,6 +20,9 @@ function NavBar() {
           LIALG <span className="text-muted-foreground font-normal text-sm">— sin TACC</span>
         </div>
         <NavLink to="/" end className={linkClass}>
+          Inicio
+        </NavLink>
+        <NavLink to="/productos" className={linkClass}>
           Productos
         </NavLink>
         <NavLink to="/marcas" className={linkClass}>
@@ -34,7 +38,8 @@ function App() {
     <BrowserRouter>
       <NavBar />
       <Routes>
-        <Route path="/" element={<ProductosPage />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/productos" element={<ProductosPage />} />
         <Route path="/marcas" element={<MarcasPage />} />
       </Routes>
     </BrowserRouter>

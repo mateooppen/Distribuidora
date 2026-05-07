@@ -6,6 +6,8 @@
  *                              numero_registro y nombre_marca)
  *   marca?     — id_marca exacto
  *   estado?    — estado_certificacion exacto
+ *   categoria? — slug de categoría (acepta slug de padre o de hija;
+ *                 si es padre, incluye productos de todas sus hijas)
  *   sort?      — 'nombre' | 'marca'  (default 'nombre')
  *   order?     — 'asc' | 'desc'      (default 'asc')
  *   page?      — 1-based, default 1
@@ -67,10 +69,31 @@ interface Querystring {
   q?: string;
   marca?: string;
   estado?: string;
+  categoria?: string;
   sort?: string;
   order?: string;
   page?: string;
   pageSize?: string;
+}
+
+// Resuelve un slug de categoría → lista de id_categoria a filtrar.
+// Si el slug pertenece a un padre, incluye al padre y a todas sus hijas.
+// Si es una hoja, devuelve sólo ese id. Si no existe, devuelve [].
+async function resolveCategoriaIds(slug: string): Promise<number[]> {
+  const padre = await db
+    .selectFrom('categorias')
+    .where('slug', '=', slug)
+    .select(['id_categoria'])
+    .executeTakeFirst();
+  if (!padre) return [];
+
+  const hijas = await db
+    .selectFrom('categorias')
+    .where('id_padre', '=', padre.id_categoria)
+    .select(['id_categoria'])
+    .execute();
+
+  return [padre.id_categoria, ...hijas.map((h) => h.id_categoria)];
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────
@@ -85,6 +108,11 @@ const productosRoutes: FastifyPluginAsync = async (fastify) => {
     const estadoRaw = req.query.estado;
     const estado = estadoRaw && (VALID_ESTADOS as readonly string[]).includes(estadoRaw)
       ? (estadoRaw as EstadoCertificacion)
+      : null;
+
+    const categoriaSlug = (req.query.categoria ?? '').trim() || null;
+    const categoriaIds = categoriaSlug
+      ? await resolveCategoriaIds(categoriaSlug)
       : null;
 
     const sort: SortKey = (req.query.sort && req.query.sort in SORT_COLUMNS)
@@ -116,6 +144,14 @@ const productosRoutes: FastifyPluginAsync = async (fastify) => {
     }
     if (estado) {
       base = base.where('p.estado_certificacion', '=', estado);
+    }
+    if (categoriaIds !== null) {
+      // Slug inválido → forzar resultado vacío. Slug válido → filtrar por ids.
+      if (categoriaIds.length === 0) {
+        base = base.where(sql<boolean>`1 = 0`);
+      } else {
+        base = base.where('p.id_categoria', 'in', categoriaIds);
+      }
     }
 
     // Count

@@ -11,6 +11,7 @@ import cors from '@fastify/cors';
 import productosRoutes from './routes/productos.js';
 import filtrosRoutes from './routes/filtros.js';
 import marcasRoutes from './routes/marcas.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 const PORT = Number.parseInt(process.env['PORT'] ?? '3001', 10);
 const HOST = process.env['HOST'] ?? '0.0.0.0';
@@ -30,6 +31,7 @@ app.get('/api/health', async () => ({ ok: true }));
 await app.register(productosRoutes, { prefix: '/api' });
 await app.register(filtrosRoutes, { prefix: '/api' });
 await app.register(marcasRoutes, { prefix: '/api' });
+await app.register(dashboardRoutes, { prefix: '/api' });
 
 try {
   await app.listen({ port: PORT, host: HOST });

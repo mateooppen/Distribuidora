@@ -24,7 +24,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -33,27 +32,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import type { EstadoCertificacion, ProductoListItem } from '@/lib/api'
+import type { ProductoListItem } from '@/lib/api'
 
 const PAGE_SIZE_OPTIONS = [10, 15, 25, 50, 100] as const
-
-// ── Estado → badge ────────────────────────────────────────────────────────
-
-const ESTADO_LABELS: Record<
-  EstadoCertificacion,
-  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
-> = {
-  vigente:         { label: 'Vigente',         variant: 'default'     },
-  baja_provisoria: { label: 'Baja provisoria', variant: 'secondary'   },
-  baja_permanente: { label: 'Baja permanente', variant: 'destructive' },
-  en_tramite:      { label: 'En trámite',      variant: 'outline'     },
-  desconocido:     { label: 'Desconocido',     variant: 'outline'     },
-}
-
-function EstadoBadge({ estado }: { estado: EstadoCertificacion }) {
-  const { label, variant } = ESTADO_LABELS[estado]
-  return <Badge variant={variant}>{label}</Badge>
-}
 
 // ── Columnas ──────────────────────────────────────────────────────────────
 
@@ -96,13 +77,6 @@ const columns: ColumnDef<ProductoListItem>[] = [
         {row.original.numero_registro ?? '—'}
       </span>
     ),
-  },
-  {
-    id: 'estado',
-    accessorKey: 'estado_certificacion',
-    header: 'Estado',
-    enableSorting: false,
-    cell: ({ row }) => <EstadoBadge estado={row.original.estado_certificacion} />,
   },
 ]
 

@@ -58,7 +58,7 @@ export function MarcasPage() {
   })
 
   const handleRowClick = (idMarca: number) => {
-    navigate(`/?marca=${idMarca}`)
+    navigate(`/productos?marca=${idMarca}`)
   }
 
   return (

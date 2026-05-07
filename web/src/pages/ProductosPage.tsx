@@ -13,8 +13,8 @@ import { ProductoDetalle } from '@/components/ProductoDetalle'
 import { useDebouncedValue } from '@/lib/useDebouncedValue'
 import {
   api,
-  type EstadoCertificacion,
   type SortKey,
+  type CategoriaFiltro,
 } from '@/lib/api'
 
 const SORT_IDS: readonly SortKey[] = ['nombre', 'marca']
@@ -23,7 +23,8 @@ export function ProductosPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   // ── Estado de UI ─────────────────────────────────────────────────────
-  const [search, setSearch] = useState('')
+  // `search` se inicializa desde ?q= para que la búsqueda rápida del home funcione.
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const debouncedSearch = useDebouncedValue(search, 300)
 
   // Inicializo `marca` desde el query param (?marca=<id>) si existe.
@@ -47,7 +48,22 @@ export function ProductosPage() {
     )
   }
 
-  const [estado, setEstado] = useState<EstadoCertificacion | null>(null)
+  // Inicializo `categoria` desde ?categoria=<slug> si existe.
+  const initialCategoria = searchParams.get('categoria') || null
+  const [categoria, setCategoriaState] = useState<string | null>(initialCategoria)
+
+  const setCategoria = (v: string | null) => {
+    setCategoriaState(v)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (v === null) next.delete('categoria')
+        else next.set('categoria', v)
+        return next
+      },
+      { replace: true },
+    )
+  }
 
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'nombre', desc: false },
@@ -62,7 +78,15 @@ export function ProductosPage() {
   // Cuando cambia un filtro, volvemos a la página 1.
   useEffect(() => {
     setPagination((p) => ({ ...p, pageIndex: 0 }))
-  }, [debouncedSearch, marca, estado])
+  }, [debouncedSearch, marca, categoria])
+
+  // Lista plana de categorías para el combobox
+  const { data: categoriasData } = useQuery({
+    queryKey: ['filtros-categorias'],
+    queryFn: api.filtrosCategorias,
+    staleTime: 10 * 60 * 1000,
+  })
+  const categorias: CategoriaFiltro[] = categoriasData?.data ?? []
 
   // ── Mapeo de sorting → API ───────────────────────────────────────────
   const sortKey: SortKey =
@@ -76,13 +100,14 @@ export function ProductosPage() {
     () => ({
       q: debouncedSearch.trim() || undefined,
       marca,
-      estado,
+      estado: 'vigente' as const,
+      categoria,
       sort: sortKey,
       order: sortOrder as 'asc' | 'desc',
       page: pagination.pageIndex + 1,
       pageSize: pagination.pageSize,
     }),
-    [debouncedSearch, marca, estado, sortKey, sortOrder, pagination],
+    [debouncedSearch, marca, categoria, sortKey, sortOrder, pagination],
   )
 
   const productosQuery = useQuery({
@@ -106,8 +131,9 @@ export function ProductosPage() {
         onSearchChange={setSearch}
         marca={marca}
         onMarcaChange={setMarca}
-        estado={estado}
-        onEstadoChange={setEstado}
+        categoria={categoria}
+        onCategoriaChange={setCategoria}
+        categorias={categorias}
         total={productosQuery.data?.total}
       />
 
