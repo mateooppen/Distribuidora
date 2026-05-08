@@ -3,9 +3,9 @@ import { spawnSync, spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
-import { DB_PATH } from './src/db/connection.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DB_PATH = process.env['DB_PATH'] ?? path.resolve(__dirname, 'db', 'lialg.db');
 
 function dbIsEmpty(): boolean {
   if (!fs.existsSync(DB_PATH)) return true;
