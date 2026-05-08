@@ -6,7 +6,7 @@ import type { DB } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export const DB_PATH = path.resolve(__dirname, '..', '..', 'db', 'lialg.db');
+export const DB_PATH = process.env['DB_PATH'] ?? path.resolve(__dirname, '..', '..', 'db', 'lialg.db');
 
 export interface OpenOptions {
   readonly?: boolean;
