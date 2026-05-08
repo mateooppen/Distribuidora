@@ -1,5 +1,8 @@
 [build]
 builder = "nixpacks"
 
+[build.nixpacksPlan.variables]
+NIXPACKS_NODE_VERSION = "22"
+
 [deploy]
 startCommand = "npm run start:prod"
