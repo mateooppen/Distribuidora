@@ -1,8 +1,5 @@
 [build]
-builder = "nixpacks"
-
-[build.nixpacksPlan.variables]
-NIXPACKS_NODE_VERSION = "22"
+builder = "railpack"
 
 [deploy]
 startCommand = "mkdir -p /data && npm run start:prod"

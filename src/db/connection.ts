@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import fs from 'node:fs';
 import { Kysely, SqliteDialect } from 'kysely';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +16,10 @@ export interface OpenOptions {
 
 export function openSqlite(options: OpenOptions = {}): Database.Database {
   const filename = options.filename ?? DB_PATH;
+  const dir = path.dirname(filename);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   const sqlite = new Database(filename, { readonly: options.readonly ?? false });
   sqlite.pragma('foreign_keys = ON');
   sqlite.pragma('journal_mode = WAL');
