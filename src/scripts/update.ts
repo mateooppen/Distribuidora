@@ -17,19 +17,41 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openSqlite } from '../db/connection.js';
+import { openSqlite, DB_PATH } from '../db/connection.js';
 import { log } from '../lib/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..', '..');
+const SCHEMA_PATH = path.resolve(__dirname, '..', 'db', 'schema.sql');
 
 const isApply = process.argv.includes('--apply');
 const desdeIdx = process.argv.indexOf('--desde');
 const desdeStep = desdeIdx !== -1 ? process.argv[desdeIdx + 1] : null;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function initializeDbIfNeeded(): void {
+  if (fs.existsSync(DB_PATH)) return;
+
+  log.info('Base de datos no encontrada. Inicializando esquema...');
+
+  if (!fs.existsSync(SCHEMA_PATH)) {
+    log.error(`No se encontró schema.sql en ${SCHEMA_PATH}`);
+    process.exit(1);
+  }
+
+  const schema_sql = fs.readFileSync(SCHEMA_PATH, 'utf8');
+  const db = openSqlite();
+  try {
+    db.exec(schema_sql);
+    log.info(`Base de datos inicializada en ${DB_PATH}`);
+  } finally {
+    db.close();
+  }
+}
 
 function snapshot(campo: string): number {
   const db = openSqlite({ readonly: true });
@@ -92,6 +114,8 @@ function debeCorrer(paso: string): boolean {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+  initializeDbIfNeeded();
+
   if (!isApply) {
     log.warn('Modo DRY-RUN. Pasá --apply para ejecutar los cambios.');
   }
