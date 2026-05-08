@@ -638,30 +638,9 @@ function main(): void {
 
   // ── Paso 4: resumen ───────────────────────────────────────────────────
 
-  console.log('\n╔══════════════════════════════════════════════════════════╗');
-  console.log('║  RESUMEN DE CATEGORIZACIÓN                              ║');
-  console.log('╚══════════════════════════════════════════════════════════╝');
-
-  // Agrupar slugs por padre para mostrar jerárquicamente.
-  for (const cat of TAXONOMIA) {
-    const hijos = cat.hijos ?? [];
-    if (hijos.length === 0) {
-      const cnt = slugCount.get(cat.slug) ?? 0;
-      console.log(`  ${cat.nombre.padEnd(35)} ${cnt}`);
-    } else {
-      const totalCat = hijos.reduce((s, h) => s + (slugCount.get(h.slug) ?? 0), 0);
-      console.log(`\n  ${cat.nombre.toUpperCase()} (${totalCat})`);
-      for (const h of hijos) {
-        const cnt = slugCount.get(h.slug) ?? 0;
-        console.log(`    ${h.nombre.padEnd(33)} ${cnt}`);
-      }
-    }
-  }
-
   const totalCategorized = productos.length - (slugCount.get('otros') ?? 0);
   const pct = ((totalCategorized / productos.length) * 100).toFixed(1);
-  console.log(`\n  Total categorizado: ${totalCategorized} / ${productos.length} (${pct}%)`);
-  console.log(`  Sin categoría (otros): ${slugCount.get('otros') ?? 0}`);
+  log.info(`Categorize: ${totalCategorized}/${productos.length} categorizados (${pct}%), sin categoría: ${slugCount.get('otros') ?? 0}`);
 
   if (!isApply) {
     log.info('\nDRY-RUN completo. Pasá --apply para aplicar.');

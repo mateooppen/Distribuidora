@@ -167,11 +167,6 @@ async function main(): Promise<void> {
       continue;
     }
 
-    console.log('');
-    console.log(`${'─'.repeat(60)}`);
-    console.log(`  Paso: ${paso.nombre}`);
-    console.log(`${'─'.repeat(60)}`);
-
     const { ok, duracion_ms } = correrPaso(paso.nombre, paso.script, paso.args);
     duracion_total_ms += duracion_ms;
 
@@ -188,21 +183,11 @@ async function main(): Promise<void> {
   const marcas_fusionadas     = isApply ? Math.max(0, marcas_antes - snapshotMarcas())       : 0;
   const estado: 'ok' | 'error' = error_mensaje ? 'error' : 'ok';
 
-  console.log('');
-  console.log('═'.repeat(60));
-  console.log('  RESUMEN DE ACTUALIZACIÓN');
-  console.log('═'.repeat(60));
   if (isApply) {
-    console.log(`  Estado:              ${estado}`);
-    console.log(`  Productos nuevos:    ${productos_nuevos}`);
-    console.log(`  Marcas fusionadas:   ${marcas_fusionadas}`);
-    console.log(`  Duración total:      ${duracion_seg.toFixed(1)}s`);
-    if (error_mensaje) console.log(`  Error:               ${error_mensaje}`);
+    log.info(`Update ${estado}: productos nuevos: ${productos_nuevos}, marcas fusionadas: ${marcas_fusionadas}, duración: ${duracion_seg.toFixed(1)}s${error_mensaje ? ` — ERROR: ${error_mensaje}` : ''}`);
   } else {
-    console.log('  DRY-RUN completado. Ningún dato fue modificado.');
-    console.log('  Ejecutá con --apply para aplicar los cambios.');
+    log.info('DRY-RUN completado. Ningún dato fue modificado. Ejecutá con --apply para aplicar los cambios.');
   }
-  console.log('═'.repeat(60));
 
   // Actualizar sync_runs con resultado
   if (isApply && id_sync_run !== null) {

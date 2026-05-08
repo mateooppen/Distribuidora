@@ -369,10 +369,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  log.info('Paso 1: GET inicial para obtener session + VIEWSTATE...');
+  log.info('Scrape: obteniendo sesión ANMAT...');
   let state = await initialGet();
-  log.debug(`Session: ${state.cookie.slice(0, 60)}...`);
-  log.debug(`VIEWSTATE length: ${state.viewstate.length}`);
 
   if (!state.viewstate) {
     log.error('No se pudo obtener VIEWSTATE. Verificar la URL del sitio.');
@@ -380,7 +378,7 @@ async function main(): Promise<void> {
   }
 
   // ── Estrategia 1: POST sin ASYNCPOST (respuesta HTML completa) ────────────
-  log.info('Paso 2: Búsqueda inicial (todos los productos, página 1)...');
+  log.info('Scrape: búsqueda inicial (página 1)...');
 
   const searchBody = baseFormBody(state, {
     'ctl00$ContentPlaceHolder1$cmdBuscar': 'Buscar',
@@ -448,8 +446,8 @@ async function main(): Promise<void> {
     allProducts.push(...r.products);
 
     const total = allProducts.length;
-    if (page % 20 === 0) {
-      log.info(`Progreso: página ${page}, ${total} productos acumulados`);
+    if (page % 100 === 0) {
+      log.info(`Scrape: página ${page}, ${total} productos acumulados`);
       if (isSave) {
         fs.writeFileSync(PROGRESS_PATH, JSON.stringify(allProducts, null, 2), 'utf8');
       }
@@ -480,10 +478,8 @@ async function main(): Promise<void> {
   for (const p of deduped) {
     byEstado.set(p.estado, (byEstado.get(p.estado) ?? 0) + 1);
   }
-  log.info('Distribución de estados:');
-  for (const [est, cnt] of byEstado) {
-    log.info(`  ${est || '(vacío)'}: ${cnt}`);
-  }
+  const estadosResumen = [...byEstado.entries()].map(([e, c]) => `${e || '(vacío)'}:${c}`).join(', ');
+  log.info(`Estados: ${estadosResumen}`);
 
   if (isSave) {
     fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });

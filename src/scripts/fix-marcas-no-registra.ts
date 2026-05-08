@@ -211,48 +211,17 @@ function main(): void {
   // 3. Resumen
   const ops_a = ops.filter(o => o.fuente === 'heuristica');
   const ops_b = ops.filter(o => o.fuente !== 'heuristica');
-  const ops_nueva_marca    = ops.filter(o => o.marca_existente === null);
-  const ops_marca_existente = ops.filter(o => o.marca_existente !== null);
+  const ops_nueva_marca = ops.filter(o => o.marca_existente === null);
 
   const marcas_a_crear = new Map<string, string>();
   for (const o of ops_nueva_marca) {
     if (!marcas_a_crear.has(o.slug)) marcas_a_crear.set(o.slug, o.marca_normalizada);
   }
 
-  const freq = new Map<string, number>();
-  for (const o of ops) {
-    freq.set(o.marca_normalizada, (freq.get(o.marca_normalizada) ?? 0) + 1);
-  }
-  const topMarcas = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25);
-
-  console.log('\n╔══════════════════════════════════════════════════════════╗');
-  console.log('║  PLAN DE REASIGNACIÓN DE MARCAS                         ║');
-  console.log('╚══════════════════════════════════════════════════════════╝');
-  console.log(`\nTotal a reasignar:              ${ops.length}`);
-  console.log(`  Pasada A (heurística):         ${ops_a.length}`);
-  console.log(`  Pasada B (substrings manuales):${ops_b.length}`);
-  console.log(`  → Marca ya existente en DB:    ${ops_marca_existente.length}`);
-  console.log(`  → Marca nueva (a crear):       ${ops_nueva_marca.length}`);
-  console.log(`  Marcas nuevas únicas:          ${marcas_a_crear.size}`);
-  console.log(`Sin candidato (A):               ${sin_candidato_a}`);
-  console.log(`Sin candidato (B):               ${sin_candidato_b}`);
-
-  console.log('\n[Top 25 marcas por frecuencia]:');
-  for (const [marca, cnt] of topMarcas) {
-    const existe = ops.find(o => o.marca_normalizada === marca)?.marca_existente;
-    const tag = existe ? `(existe: id=${existe.id_marca})` : '(nueva)';
-    console.log(`  ${cnt.toString().padStart(4)} × "${marca}" ${tag}`);
-  }
-
-  console.log('\n[Muestra pasada B — primeras 20]:');
-  for (const o of ops_b.slice(0, 20)) {
-    const destino = o.marca_existente
-      ? `→ "${o.marca_existente.nombre_marca}" (id=${o.marca_existente.id_marca})`
-      : `→ NUEVA "${o.marca_normalizada}"`;
-    console.log(`  [${o.numero_registro ?? '—'}] ${o.nombre_producto.slice(0, 50)}`);
-    console.log(`    fantasia: "${o.fantasia.slice(0, 70)}"`);
-    console.log(`    fuente: ${o.fuente}  ${destino}`);
-  }
+  log.info(
+    `Fix-marcas: ${ops.length} a reasignar (A: ${ops_a.length}, B: ${ops_b.length}), ` +
+    `marcas nuevas: ${marcas_a_crear.size}, sin candidato: ${sin_candidato_a + sin_candidato_b}`,
+  );
 
   if (!isApply) {
     log.info('\nDRY-RUN completo. Pasá --apply para ejecutar los cambios.');

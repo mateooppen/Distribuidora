@@ -148,41 +148,12 @@ function main(): void {
   const updates_baja = ops_update.filter(o =>
     o.estado_nuevo === 'baja_permanente' || o.estado_nuevo === 'baja_provisoria',
   );
-  const updates_otros = ops_update.filter(o =>
-    o.estado_nuevo !== 'baja_permanente' && o.estado_nuevo !== 'baja_provisoria',
+
+  log.info(
+    `Sync: ${scraped.length} en JSON — encontrados: ${stats.encontrados}, sin cambio: ${stats.sin_cambio}, ` +
+    `cambios de estado: ${ops_update.length} (bajas: ${updates_baja.length}), nuevos: ${ops_insert.length}, ` +
+    `RNPAs inválidos: ${stats.rnpa_invalido}`,
   );
-
-  console.log('\n╔══════════════════════════════════════════════════════════╗');
-  console.log('║  RESUMEN DE SINCRONIZACIÓN LIALG                        ║');
-  console.log('╚══════════════════════════════════════════════════════════╝');
-  console.log(`\nProductos en JSON scrapeado:       ${scraped.length}`);
-  console.log(`Encontrados en DB (por RNPA):      ${stats.encontrados}`);
-  console.log(`  Sin cambio de estado:             ${stats.sin_cambio}`);
-  console.log(`  Con cambio de estado:             ${ops_update.length}`);
-  console.log(`    → Bajas (permanente/provisoria): ${updates_baja.length}`);
-  console.log(`    → Otros cambios:                 ${updates_otros.length}`);
-  console.log(`No encontrados en DB (nuevos):     ${ops_insert.length}`);
-  console.log(`RNPAs vacíos/inválidos:            ${stats.rnpa_invalido}`);
-
-  if (ops_update.length > 0) {
-    console.log('\n[Muestra de cambios de estado — primeras 10]:');
-    for (const o of ops_update.slice(0, 10)) {
-      console.log(
-        `  RNPA ${o.rnpa}: "${o.nombre_producto}" | ${o.estado_anterior} → ${o.estado_nuevo}`,
-      );
-    }
-    if (ops_update.length > 10) console.log(`  ... y ${ops_update.length - 10} más`);
-  }
-
-  if (ops_insert.length > 0) {
-    console.log('\n[Muestra de productos nuevos — primeros 10]:');
-    for (const o of ops_insert.slice(0, 10)) {
-      console.log(
-        `  RNPA ${o.scraped.rnpa}: "${o.scraped.denominacion}" [${o.scraped.marca}] (${o.estado})`,
-      );
-    }
-    if (ops_insert.length > 10) console.log(`  ... y ${ops_insert.length - 10} más`);
-  }
 
   if (!isApply) {
     log.info('\nDRY-RUN completo. Pasá --apply para ejecutar los cambios.');
@@ -287,10 +258,7 @@ function main(): void {
     sqlite.close();
   }
 
-  log.info(`\nSincronización completada:`);
-  log.info(`  Estados actualizados:  ${stats.estado_actualizado}`);
-  log.info(`  Productos nuevos:      ${stats.nuevos_insertados}`);
-  log.info(`  Errores:               ${stats.errores}`);
+  log.info(`Sync completado: ${stats.estado_actualizado} estados actualizados, ${stats.nuevos_insertados} nuevos, ${stats.errores} errores.`);
 }
 
 main();

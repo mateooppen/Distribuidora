@@ -63,18 +63,19 @@ function main(): void {
 
   let aplicadas = 0;
   let errores = 0;
+  let origenes_no_encontrados = 0;
+  let destinos_no_encontrados = 0;
 
   const run = sqlite.transaction(() => {
     // 0. Anotar placeholder "No Registra" (siempre, independientemente del JSON).
     const no_reg = sqlite.prepare(`SELECT id_marca FROM marcas WHERE slug = 'no-registra'`).get() as { id_marca: number } | undefined;
     if (no_reg) {
       if (!isApply) {
-        log.info('[DRY-RUN] Anotaría observaciones en marca "No Registra" (id=%d)', no_reg.id_marca);
+        log.info('[DRY-RUN] Anotaría observaciones en marca "No Registra"');
       } else {
         sqlite.prepare(
           `UPDATE marcas SET observaciones = 'Placeholder del CSV origen (ANMAT 2019): marca real desconocida. Los productos asociados requieren cruce con LIALG online en etapa 4.A.4.' WHERE id_marca = ?`,
         ).run(no_reg.id_marca);
-        log.info('Marcada como placeholder: "No Registra" (id=%d, %d productos)', no_reg.id_marca, 499);
         aplicadas++;
       }
     }
@@ -90,11 +91,11 @@ function main(): void {
       ).get(regla.destino_slug) as BrandRow | undefined;
 
       if (!origen) {
-        log.warn(`Origen no encontrado: slug="${regla.origen_slug}" — puede haberse fusionado antes.`);
+        origenes_no_encontrados++;
         continue;
       }
       if (!destino) {
-        log.warn(`Destino no encontrado: slug="${regla.destino_slug}"`);
+        destinos_no_encontrados++;
         errores++;
         continue;
       }
@@ -109,18 +110,14 @@ function main(): void {
       }
 
       try {
-        // Re-asignar productos.
         sqlite.prepare(`UPDATE productos SET id_marca = ? WHERE id_marca = ?`).run(destino.id_marca, origen.id_marca);
 
-        // Anotar en la marca destino que absorbió a origen.
         const nota = `[4.B] Absorbió "${origen.nombre_marca}" (${prods_origen} prods) — ${regla.motivo}`;
         const obs_actual = destino.observaciones ? destino.observaciones + '; ' + nota : nota;
         sqlite.prepare(`UPDATE marcas SET observaciones = ? WHERE id_marca = ?`).run(obs_actual, destino.id_marca);
 
-        // Eliminar marca origen (ya sin productos; FK RESTRICT lo protege si algo falló).
         sqlite.prepare(`DELETE FROM marcas WHERE id_marca = ?`).run(origen.id_marca);
 
-        log.info(`Fusionada: "${origen.nombre_marca}" (${prods_origen} prods) → "${destino.nombre_marca}"`);
         aplicadas++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -137,10 +134,9 @@ function main(): void {
   }
 
   if (isApply) {
-    log.info(`\nResumen: ${aplicadas} acciones aplicadas, ${errores} errores.`);
-    if (errores > 0) log.warn('Revisá los errores — la transacción pudo haber hecho rollback parcial.');
+    log.info(`Merge: ${aplicadas} fusiones aplicadas, ${errores} errores, ${origenes_no_encontrados} orígenes ya fusionados previamente, ${destinos_no_encontrados} destinos no encontrados.`);
   } else {
-    log.info('\nDRY-RUN completo. Pasá --apply para ejecutar los cambios.');
+    log.info('DRY-RUN completo. Pasá --apply para ejecutar los cambios.');
   }
 }
 
