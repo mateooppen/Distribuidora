@@ -234,12 +234,42 @@ export interface ProductoDetalleResponse {
   data: ProductoDetalle
 }
 
+// ── Admin / sync ──────────────────────────────────────────────────────────
+
+export interface SyncRun {
+  id_sync_run: number
+  iniciado_en: string
+  finalizado_en: string | null
+  estado: 'en_curso' | 'ok' | 'error'
+  productos_nuevos: number | null
+  marcas_fusionadas: number | null
+  duracion_seg: number | null
+  error_mensaje: string | null
+}
+
+export interface UpdateStatusResponse {
+  en_curso: boolean
+  ultimo_run: SyncRun | null
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`)
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText} — ${path}`)
+  }
+  return (await res.json()) as T
+}
+
+async function post<T>(path: string, token: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(body.error ?? `${res.status} ${res.statusText}`)
   }
   return (await res.json()) as T
 }
@@ -301,4 +331,16 @@ export const api = {
     const query = buildQuery({ q: q.trim() || undefined, limit })
     return get<MarcasResponse>(`/api/filtros/marcas${query}`)
   },
+
+  syncStatus: (token: string) => {
+    return fetch(`${API_BASE}/api/admin/update/status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(async res => {
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+      return res.json() as Promise<UpdateStatusResponse>
+    })
+  },
+
+  triggerUpdate: (token: string) =>
+    post<{ ok: boolean; mensaje: string }>('/api/admin/update', token),
 }

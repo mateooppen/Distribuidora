@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { api, type CategoriaNode } from '@/lib/api'
+import { api, type CategoriaNode, type SyncRun } from '@/lib/api'
 
 function TotalesHeader() {
   const { data } = useQuery({
@@ -138,6 +138,144 @@ function CategoriasGrid() {
   )
 }
 
+function formatFecha(iso: string): string {
+  return new Date(iso).toLocaleString('es-AR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
+
+function formatDuracion(seg: number | null): string {
+  if (seg === null) return '—'
+  if (seg < 60) return `${seg.toFixed(0)}s`
+  return `${Math.floor(seg / 60)}m ${Math.round(seg % 60)}s`
+}
+
+function RunRow({ run, label }: { run: SyncRun; label: string }) {
+  const estadoColor =
+    run.estado === 'ok' ? 'text-green-500' :
+    run.estado === 'error' ? 'text-red-500' :
+    'text-yellow-500'
+
+  return (
+    <div className="text-sm">
+      <span className="text-muted-foreground text-xs uppercase tracking-wide">{label}</span>
+      <div className="mt-1 flex flex-wrap gap-x-6 gap-y-1">
+        <span className={`font-medium ${estadoColor}`}>
+          {run.estado === 'ok' ? 'Exitoso' : run.estado === 'error' ? 'Error' : 'En curso'}
+        </span>
+        <span className="text-muted-foreground">{formatFecha(run.iniciado_en)}</span>
+        <span className="text-muted-foreground">Duración: {formatDuracion(run.duracion_seg)}</span>
+        {run.productos_nuevos !== null && run.productos_nuevos > 0 && (
+          <span className="text-muted-foreground">+{run.productos_nuevos} productos</span>
+        )}
+        {run.error_mensaje && (
+          <span className="text-red-400 text-xs">{run.error_mensaje}</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SyncStatus() {
+  const queryClient = useQueryClient()
+  const [token, setToken] = useState('')
+  const [tokenInput, setTokenInput] = useState('')
+  const [mensaje, setMensaje] = useState<string | null>(null)
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['sync-status', token],
+    queryFn: () => api.syncStatus(token),
+    enabled: token !== '',
+    refetchInterval: (query) =>
+      query.state.data?.en_curso ? 10_000 : false,
+  })
+
+  const mutation = useMutation({
+    mutationFn: () => api.triggerUpdate(token),
+    onSuccess: (res) => {
+      setMensaje(res.mensaje)
+      setTimeout(() => {
+        void queryClient.invalidateQueries({ queryKey: ['sync-status'] })
+      }, 2000)
+    },
+    onError: (err: Error) => setMensaje(`Error: ${err.message}`),
+  })
+
+  const ultimo = data?.ultimo_run ?? null
+  const mostrarAviso = ultimo && ultimo.estado !== 'ok'
+
+  const handleVerEstado = () => {
+    setToken(tokenInput.trim())
+    setMensaje(null)
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-5">
+      <h2 className="text-base font-semibold mb-4">Sincronización ANMAT</h2>
+
+      {token === '' ? (
+        <div className="flex gap-2 max-w-sm">
+          <Input
+            type="password"
+            placeholder="Token de administración"
+            value={tokenInput}
+            onChange={(e) => setTokenInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleVerEstado()}
+          />
+          <Button variant="outline" onClick={handleVerEstado} disabled={!tokenInput.trim()}>
+            Ver estado
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {isLoading && <p className="text-sm text-muted-foreground">Cargando...</p>}
+          {isError && <p className="text-sm text-red-400">No se pudo obtener el estado. Verificá el token.</p>}
+
+          {data && (
+            <>
+              {data.en_curso && (
+                <p className="text-sm text-yellow-500 font-medium">⏳ Update en curso...</p>
+              )}
+              {ultimo ? (
+                <RunRow run={ultimo} label="Último run" />
+              ) : (
+                <p className="text-sm text-muted-foreground">Sin ejecuciones registradas.</p>
+              )}
+              {mostrarAviso && (
+                <p className="text-xs text-muted-foreground">
+                  El último run no fue exitoso. Consultá los logs de Railway para más detalle.
+                </p>
+              )}
+            </>
+          )}
+
+          {mensaje && (
+            <p className="text-sm text-muted-foreground">{mensaje}</p>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <Button
+              size="sm"
+              onClick={() => mutation.mutate()}
+              disabled={mutation.isPending || data?.en_curso}
+            >
+              {mutation.isPending ? 'Iniciando...' : 'Actualizar ahora'}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => { setToken(''); setTokenInput(''); setMensaje(null) }}
+            >
+              Cerrar
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function HomePage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-[1400px]">
@@ -155,7 +293,10 @@ export function HomePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-8">
         <TopMarcas />
-        <CategoriasGrid />
+        <div className="space-y-8">
+          <CategoriasGrid />
+          <SyncStatus />
+        </div>
       </div>
     </div>
   )
