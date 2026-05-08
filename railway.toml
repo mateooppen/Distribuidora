@@ -5,4 +5,4 @@ builder = "nixpacks"
 NIXPACKS_NODE_VERSION = "22"
 
 [deploy]
-startCommand = "npm run start:prod"
+startCommand = "mkdir -p /data && npm run start:prod"
