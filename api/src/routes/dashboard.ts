@@ -80,6 +80,29 @@ const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
 
     return { data: roots };
   });
+  // ── Última sincronización ────────────────────────────────────────────
+  fastify.get('/sync/last', async () => {
+    const row = sqlite.prepare(
+      `SELECT id_sync_run, iniciado_en, finalizado_en, estado,
+              productos_nuevos, marcas_fusionadas, duracion_seg, error_mensaje
+       FROM sync_runs
+       WHERE estado IN ('ok', 'error')
+       ORDER BY iniciado_en DESC
+       LIMIT 1`,
+    ).get() as {
+      id_sync_run: number;
+      iniciado_en: string;
+      finalizado_en: string | null;
+      estado: 'ok' | 'error';
+      productos_nuevos: number;
+      marcas_fusionadas: number;
+      duracion_seg: number | null;
+      error_mensaje: string | null;
+    } | undefined;
+
+    if (!row) return { data: null };
+    return { data: row };
+  });
 };
 
 export default dashboardRoutes;
