@@ -48,11 +48,11 @@ const columns: ColumnDef<ProductoListItem>[] = [
       const p = row.original
       return (
         <div>
-          <div className="font-medium leading-snug line-clamp-2">
+          <div className="font-semibold text-sm leading-snug line-clamp-2">
             {p.nombre_fantasia ?? p.nombre_producto}
           </div>
           {p.nombre_fantasia && (
-            <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+            <div className="text-xs text-muted-foreground mt-1 line-clamp-1 italic">
               {p.nombre_producto}
             </div>
           )}
@@ -180,8 +180,8 @@ export function ProductosTable({
                     key={row.id}
                     data-state={isSelected ? 'selected' : undefined}
                     className={cn(
-                      onRowClick && 'cursor-pointer hover:bg-muted/50 transition-colors',
-                      isSelected && 'bg-muted',
+                      onRowClick && 'cursor-pointer',
+                      isSelected && 'bg-primary/10 hover:bg-primary/15',
                     )}
                     onClick={() => onRowClick?.(row.original.id_producto)}
                   >

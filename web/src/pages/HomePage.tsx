@@ -13,17 +13,17 @@ function TotalesHeader() {
   })
 
   return (
-    <div className="flex flex-wrap gap-6 mb-8">
+    <div className="flex flex-wrap gap-3 mb-8">
       {[
         { label: 'Productos', value: data?.productos },
         { label: 'Marcas', value: data?.marcas },
         { label: 'Categorías', value: data?.categorias },
       ].map(({ label, value }) => (
-        <div key={label} className="flex flex-col">
-          <span className="text-3xl font-bold tabular-nums">
+        <div key={label} className="bg-card border border-border rounded-lg px-5 py-3 flex flex-col min-w-[120px]">
+          <span className="text-2xl font-bold tabular-nums text-foreground">
             {value !== undefined ? value.toLocaleString('es-AR') : '—'}
           </span>
-          <span className="text-sm text-muted-foreground">{label}</span>
+          <span className="text-xs text-muted-foreground mt-0.5 uppercase tracking-wide">{label}</span>
         </div>
       ))}
     </div>
@@ -90,13 +90,15 @@ function CategoriaCard({ nodo }: { nodo: CategoriaNode }) {
   const navigate = useNavigate()
 
   return (
-    <div className="border rounded-lg p-4">
+    <div className="bg-card border border-border rounded-lg p-4 hover:border-primary/40 transition-colors">
       <button
         onClick={() => navigate(`/productos?categoria=${nodo.slug}`)}
-        className="flex justify-between items-baseline w-full mb-2 text-left group"
+        className="flex justify-between items-baseline w-full mb-3 text-left group"
       >
-        <span className="font-medium group-hover:underline">{nodo.nombre}</span>
-        <span className="text-muted-foreground text-sm tabular-nums ml-2 shrink-0">
+        <span className="font-semibold text-sm group-hover:text-primary transition-colors">
+          {nodo.nombre}
+        </span>
+        <span className="text-muted-foreground text-xs tabular-nums ml-2 shrink-0">
           {nodo.total_productos.toLocaleString('es-AR')}
         </span>
       </button>
@@ -106,7 +108,7 @@ function CategoriaCard({ nodo }: { nodo: CategoriaNode }) {
             <button
               key={hijo.id_categoria}
               onClick={() => navigate(`/productos?categoria=${hijo.slug}`)}
-              className="text-xs px-2 py-0.5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
+              className="text-xs px-2 py-0.5 rounded-full bg-muted hover:bg-primary/20 hover:text-primary text-muted-foreground transition-colors"
             >
               {hijo.nombre}
             </button>
@@ -139,17 +141,19 @@ function CategoriasGrid() {
 export function HomePage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-[1400px]">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Inicio</h1>
+      <header className="mb-8">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          Productos certificados sin TACC
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Productos certificados por ANMAT, importados del listado LIALG.
+          Listado LIALG — ANMAT Argentina
         </p>
       </header>
 
       <TotalesHeader />
       <BusquedaRapida />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-8">
         <TopMarcas />
         <CategoriasGrid />
       </div>

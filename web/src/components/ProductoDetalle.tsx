@@ -35,11 +35,14 @@ function Field({
   label,
   children,
   empty,
+  always,
 }: {
   label: string
   children?: React.ReactNode
   empty?: boolean
+  always?: boolean  // mostrar aunque esté vacío
 }) {
+  if (empty && !always) return null
   return (
     <div className="grid grid-cols-[140px_1fr] gap-3 items-start">
       <dt className="text-xs uppercase tracking-wide text-muted-foreground pt-0.5">
@@ -98,52 +101,18 @@ function ProductoSection({ producto }: { producto: ProductoDetalleData }) {
 
   return (
     <Section title="Producto">
-      <dl className="space-y-2">
-        <Field label="Nombre">{producto.nombre_producto}</Field>
+      <dl className="space-y-2.5">
+        <Field label="Nombre" always>{producto.nombre_producto}</Field>
 
-        <Field
-          label="Nombre fantasía"
-          empty={!producto.nombre_fantasia}
-        >
+        <Field label="Nombre fantasía" empty={!producto.nombre_fantasia}>
           {producto.nombre_fantasia}
         </Field>
 
-        <Field label="Estado">
+        <Field label="Estado" always>
           <EstadoBadge estado={producto.estado_certificacion} />
         </Field>
 
-        <Field label="Categoría" empty={!producto.categoria}>
-          {producto.categoria && (
-            <span>
-              {producto.categoria.padre_nombre && (
-                <>
-                  <span className="text-muted-foreground">
-                    {producto.categoria.padre_nombre}
-                  </span>{' '}
-                  /{' '}
-                </>
-              )}
-              {producto.categoria.nombre}
-            </span>
-          )}
-        </Field>
-
-        <Field label="Tipo de registro" empty={!producto.tipo_registro}>
-          {producto.tipo_registro}
-        </Field>
-
-        <Field label="N° de registro" empty={!producto.numero_registro}>
-          <span className="font-mono">{producto.numero_registro}</span>
-        </Field>
-
-        <Field
-          label="Alta del registro"
-          empty={!producto.fecha_alta_registro}
-        >
-          {fmtFecha(producto.fecha_alta_registro)}
-        </Field>
-
-        <Field label="Marca">
+        <Field label="Marca" always>
           <span>{producto.marca.nombre_marca}</span>
           {producto.marca.empresa_titular && (
             <span className="block text-xs text-muted-foreground mt-0.5">
@@ -160,11 +129,32 @@ function ProductoSection({ producto }: { producto: ProductoDetalleData }) {
               href={producto.marca.sitio_web}
               target="_blank"
               rel="noreferrer"
-              className="block text-xs text-blue-600 hover:underline mt-0.5"
+              className="block text-xs text-primary hover:underline mt-0.5"
             >
               {producto.marca.sitio_web}
             </a>
           )}
+        </Field>
+
+        <Field label="Categoría" empty={!producto.categoria}>
+          {producto.categoria && (
+            <span>
+              {producto.categoria.padre_nombre && (
+                <span className="text-muted-foreground">
+                  {producto.categoria.padre_nombre} /{' '}
+                </span>
+              )}
+              {producto.categoria.nombre}
+            </span>
+          )}
+        </Field>
+
+        <Field label="N° de registro" empty={!producto.numero_registro}>
+          <span className="font-mono">{producto.numero_registro}</span>
+        </Field>
+
+        <Field label="Alta del registro" empty={!producto.fecha_alta_registro}>
+          {fmtFecha(producto.fecha_alta_registro)}
         </Field>
 
         <Field label="Descripción" empty={!producto.descripcion}>
@@ -179,10 +169,7 @@ function ProductoSection({ producto }: { producto: ProductoDetalleData }) {
           {producto.vida_util_dias} días
         </Field>
 
-        <Field
-          label="Conservación"
-          empty={!producto.condiciones_conservacion}
-        >
+        <Field label="Conservación" empty={!producto.condiciones_conservacion}>
           {producto.condiciones_conservacion}
         </Field>
 
@@ -190,7 +177,7 @@ function ProductoSection({ producto }: { producto: ProductoDetalleData }) {
           <p className="whitespace-pre-wrap">{producto.observaciones}</p>
         </Field>
 
-        <Field label="Última actualización">
+        <Field label="Última actualización" always>
           {new Date(producto.updated_at).toLocaleString('es-AR')}
         </Field>
       </dl>
@@ -213,24 +200,17 @@ function PresentacionesSection({ items }: { items: Presentacion[] }) {
               className="border rounded-md p-3 bg-muted/30"
             >
               <dl className="space-y-1.5">
-                <Field label="Formato" empty={!p.formato}>
-                  {p.formato}
-                </Field>
-                <Field
-                  label="Contenido neto"
-                  empty={p.contenido_neto === null}
-                >
+                <Field label="Formato" empty={!p.formato}>{p.formato}</Field>
+                <Field label="Contenido neto" empty={p.contenido_neto === null}>
                   {p.contenido_neto} {p.unidad_medida ?? ''}
                 </Field>
                 <Field label="EAN-13" empty={!p.ean_13}>
                   <span className="font-mono">{p.ean_13}</span>
                 </Field>
-                <Field label="Disponibilidad">{p.disponibilidad}</Field>
-                {p.codigo_interno && (
-                  <Field label="Código interno">
-                    <span className="font-mono">{p.codigo_interno}</span>
-                  </Field>
-                )}
+                <Field label="Disponibilidad" always>{p.disponibilidad}</Field>
+                <Field label="Código interno" empty={!p.codigo_interno}>
+                  <span className="font-mono">{p.codigo_interno}</span>
+                </Field>
               </dl>
             </div>
           ))}

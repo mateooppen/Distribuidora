@@ -42,14 +42,14 @@ export function Filtros({
     categorias.filter((c) => c.id_padre === idPadre)
 
   return (
-    <div className="flex flex-col gap-3 mb-4">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="mb-5">
+      <div className="bg-card border border-border rounded-lg px-4 py-3 flex flex-wrap items-center gap-2">
         <Input
           type="search"
           placeholder="Buscar por nombre, fantasía, RNPA o marca…"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="max-w-sm"
+          className="max-w-sm bg-background"
         />
 
         <MarcaCombobox
@@ -62,7 +62,7 @@ export function Filtros({
           value={categoria ?? TODOS}
           onValueChange={(v) => onCategoriaChange(v === TODOS ? null : v)}
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[200px] bg-background">
             <SelectValue placeholder="Categoría" />
           </SelectTrigger>
           <SelectContent>
@@ -99,15 +99,15 @@ export function Filtros({
             Limpiar
           </Button>
         )}
-      </div>
 
-      {typeof total === 'number' && (
-        <div className="text-sm text-muted-foreground">
-          {total === 0
-            ? 'Sin resultados'
-            : `${total.toLocaleString('es-AR')} producto${total === 1 ? '' : 's'}`}
-        </div>
-      )}
+        {typeof total === 'number' && (
+          <span className="ml-auto text-sm text-muted-foreground tabular-nums">
+            {total === 0
+              ? 'Sin resultados'
+              : `${total.toLocaleString('es-AR')} producto${total === 1 ? '' : 's'}`}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
