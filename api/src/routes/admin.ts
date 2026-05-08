@@ -80,8 +80,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // ── GET /admin/update/status ─────────────────────────────────────────────
-  fastify.get('/admin/update/status', async (request, reply) => {
-    if (!checkAuth(request, reply)) return;
+  fastify.get('/admin/update/status', async (_request, _reply) => {
 
     const last = sqlite.prepare(
       `SELECT id_sync_run, iniciado_en, finalizado_en, estado,

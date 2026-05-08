@@ -332,14 +332,7 @@ export const api = {
     return get<MarcasResponse>(`/api/filtros/marcas${query}`)
   },
 
-  syncStatus: (token: string) => {
-    return fetch(`${API_BASE}/api/admin/update/status`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then(async res => {
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-      return res.json() as Promise<UpdateStatusResponse>
-    })
-  },
+  syncStatus: () => get<UpdateStatusResponse>('/api/admin/update/status'),
 
   triggerUpdate: (token: string) =>
     post<{ ok: boolean; mensaje: string }>('/api/admin/update', token),

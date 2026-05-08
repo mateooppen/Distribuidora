@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { api, type CategoriaNode, type SyncRun } from '@/lib/api'
+import { api, type CategoriaNode } from '@/lib/api'
 
 function TotalesHeader() {
   const { data } = useQuery({
@@ -151,50 +151,26 @@ function formatDuracion(seg: number | null): string {
   return `${Math.floor(seg / 60)}m ${Math.round(seg % 60)}s`
 }
 
-function RunRow({ run, label }: { run: SyncRun; label: string }) {
-  const estadoColor =
-    run.estado === 'ok' ? 'text-green-500' :
-    run.estado === 'error' ? 'text-red-500' :
-    'text-yellow-500'
-
-  return (
-    <div className="text-sm">
-      <span className="text-muted-foreground text-xs uppercase tracking-wide">{label}</span>
-      <div className="mt-1 flex flex-wrap gap-x-6 gap-y-1">
-        <span className={`font-medium ${estadoColor}`}>
-          {run.estado === 'ok' ? 'Exitoso' : run.estado === 'error' ? 'Error' : 'En curso'}
-        </span>
-        <span className="text-muted-foreground">{formatFecha(run.iniciado_en)}</span>
-        <span className="text-muted-foreground">Duración: {formatDuracion(run.duracion_seg)}</span>
-        {run.productos_nuevos !== null && run.productos_nuevos > 0 && (
-          <span className="text-muted-foreground">+{run.productos_nuevos} productos</span>
-        )}
-        {run.error_mensaje && (
-          <span className="text-red-400 text-xs">{run.error_mensaje}</span>
-        )}
-      </div>
-    </div>
-  )
-}
 
 function SyncStatus() {
   const queryClient = useQueryClient()
-  const [token, setToken] = useState('')
+  const [showTokenInput, setShowTokenInput] = useState(false)
   const [tokenInput, setTokenInput] = useState('')
+  const [token, setToken] = useState('')
   const [mensaje, setMensaje] = useState<string | null>(null)
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['sync-status', token],
-    queryFn: () => api.syncStatus(token),
-    enabled: token !== '',
-    refetchInterval: (query) =>
-      query.state.data?.en_curso ? 10_000 : false,
+  const { data, isLoading } = useQuery({
+    queryKey: ['sync-status'],
+    queryFn: () => api.syncStatus(),
+    refetchInterval: (query) => query.state.data?.en_curso ? 10_000 : 60_000,
   })
 
   const mutation = useMutation({
     mutationFn: () => api.triggerUpdate(token),
     onSuccess: (res) => {
       setMensaje(res.mensaje)
+      setShowTokenInput(false)
+      setTokenInput('')
       setTimeout(() => {
         void queryClient.invalidateQueries({ queryKey: ['sync-status'] })
       }, 2000)
@@ -203,75 +179,110 @@ function SyncStatus() {
   })
 
   const ultimo = data?.ultimo_run ?? null
-  const mostrarAviso = ultimo && ultimo.estado !== 'ok'
 
-  const handleVerEstado = () => {
-    setToken(tokenInput.trim())
-    setMensaje(null)
+  const handleDispararUpdate = () => {
+    const t = tokenInput.trim()
+    if (!t) return
+    setToken(t)
+    mutation.mutate()
   }
 
-  return (
-    <div className="bg-card border border-border rounded-lg p-5">
-      <h2 className="text-base font-semibold mb-4">Sincronización ANMAT</h2>
+  const estadoColor =
+    ultimo?.estado === 'ok' ? 'text-green-500' :
+    ultimo?.estado === 'error' ? 'text-red-500' :
+    ultimo?.estado === 'en_curso' ? 'text-yellow-500' :
+    'text-muted-foreground'
 
-      {token === '' ? (
-        <div className="flex gap-2 max-w-sm">
-          <Input
-            type="password"
-            placeholder="Token de administración"
-            value={tokenInput}
-            onChange={(e) => setTokenInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleVerEstado()}
-          />
-          <Button variant="outline" onClick={handleVerEstado} disabled={!tokenInput.trim()}>
-            Ver estado
-          </Button>
+  const estadoLabel =
+    data?.en_curso ? 'En curso...' :
+    ultimo?.estado === 'ok' ? 'Exitoso' :
+    ultimo?.estado === 'error' ? 'Error' :
+    'Sin datos'
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-4 w-full max-w-sm ml-auto">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold">Sincronización ANMAT</h2>
+        {data?.en_curso && (
+          <span className="text-xs text-yellow-500 font-medium">⏳ En curso</span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">Cargando...</p>
+      ) : ultimo ? (
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Estado</span>
+            <span className={`font-medium ${estadoColor}`}>{estadoLabel}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Fecha</span>
+            <span>{formatFecha(ultimo.iniciado_en)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Duración</span>
+            <span>{formatDuracion(ultimo.duracion_seg)}</span>
+          </div>
+          {ultimo.productos_nuevos !== null && ultimo.productos_nuevos > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Productos nuevos</span>
+              <span>+{ultimo.productos_nuevos}</span>
+            </div>
+          )}
+          {ultimo.error_mensaje && (
+            <p className="text-red-400 pt-1">{ultimo.error_mensaje}</p>
+          )}
         </div>
       ) : (
-        <div className="space-y-4">
-          {isLoading && <p className="text-sm text-muted-foreground">Cargando...</p>}
-          {isError && <p className="text-sm text-red-400">No se pudo obtener el estado. Verificá el token.</p>}
+        <p className="text-xs text-muted-foreground">Sin ejecuciones registradas.</p>
+      )}
 
-          {data && (
-            <>
-              {data.en_curso && (
-                <p className="text-sm text-yellow-500 font-medium">⏳ Update en curso...</p>
-              )}
-              {ultimo ? (
-                <RunRow run={ultimo} label="Último run" />
-              ) : (
-                <p className="text-sm text-muted-foreground">Sin ejecuciones registradas.</p>
-              )}
-              {mostrarAviso && (
-                <p className="text-xs text-muted-foreground">
-                  El último run no fue exitoso. Consultá los logs de Railway para más detalle.
-                </p>
-              )}
-            </>
-          )}
+      {mensaje && (
+        <p className="text-xs text-muted-foreground mt-2">{mensaje}</p>
+      )}
 
-          {mensaje && (
-            <p className="text-sm text-muted-foreground">{mensaje}</p>
-          )}
-
-          <div className="flex gap-2 pt-1">
+      <div className="mt-3 space-y-2">
+        {showTokenInput ? (
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              placeholder="Token de administración"
+              value={tokenInput}
+              className="h-7 text-xs"
+              onChange={(e) => setTokenInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleDispararUpdate()}
+              autoFocus
+            />
             <Button
               size="sm"
-              onClick={() => mutation.mutate()}
-              disabled={mutation.isPending || data?.en_curso}
+              className="h-7 text-xs px-2"
+              onClick={handleDispararUpdate}
+              disabled={!tokenInput.trim() || mutation.isPending}
             >
-              {mutation.isPending ? 'Iniciando...' : 'Actualizar ahora'}
+              {mutation.isPending ? '...' : 'Confirmar'}
             </Button>
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => { setToken(''); setTokenInput(''); setMensaje(null) }}
+              className="h-7 text-xs px-2"
+              onClick={() => { setShowTokenInput(false); setTokenInput('') }}
             >
-              Cerrar
+              Cancelar
             </Button>
           </div>
-        </div>
-      )}
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs w-full"
+            onClick={() => { setShowTokenInput(true); setMensaje(null) }}
+            disabled={!!data?.en_curso}
+          >
+            Actualizar ahora
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
@@ -279,24 +290,25 @@ function SyncStatus() {
 export function HomePage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-[1400px]">
-      <header className="mb-8">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          Productos certificados sin TACC
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Listado LIALG — ANMAT Argentina
-        </p>
-      </header>
-
-      <TotalesHeader />
-      <BusquedaRapida />
+      <div className="flex flex-wrap items-start justify-between gap-6 mb-8">
+        <div>
+          <header className="mb-6">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              Productos certificados sin TACC
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Listado LIALG — ANMAT Argentina
+            </p>
+          </header>
+          <TotalesHeader />
+          <BusquedaRapida />
+        </div>
+        <SyncStatus />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-8">
         <TopMarcas />
-        <div className="space-y-8">
-          <CategoriasGrid />
-          <SyncStatus />
-        </div>
+        <CategoriasGrid />
       </div>
     </div>
   )
