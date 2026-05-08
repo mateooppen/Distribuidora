@@ -2,14 +2,21 @@ import fs from 'node:fs';
 import { spawnSync, spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import Database from 'better-sqlite3';
+import { DB_PATH } from './src/db/connection.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = process.env['DB_PATH'] ?? path.resolve(__dirname, 'db', 'lialg.db');
 
 function dbIsEmpty(): boolean {
   if (!fs.existsSync(DB_PATH)) return true;
-  const stat = fs.statSync(DB_PATH);
-  return stat.size < 1024;
+  try {
+    const db = new Database(DB_PATH, { readonly: true });
+    const row = db.prepare('SELECT COUNT(*) AS n FROM productos').get() as { n: number };
+    db.close();
+    return row.n === 0;
+  } catch {
+    return true;
+  }
 }
 
 if (dbIsEmpty()) {
@@ -20,10 +27,10 @@ if (dbIsEmpty()) {
     { stdio: 'inherit', cwd: __dirname }
   );
   if (result.status !== 0) {
-    console.error('[start] Pipeline falló. Abortando.');
-    process.exit(1);
+    console.error('[start] Pipeline falló. El servidor arrancará igual (endpoints responderán 503 hasta próxima sincronización).');
+  } else {
+    console.log('[start] Pipeline completado. Iniciando servidor...');
   }
-  console.log('[start] Pipeline completado. Iniciando servidor...');
 } else {
   console.log(`[start] DB encontrada en ${DB_PATH}. Iniciando servidor...`);
 }

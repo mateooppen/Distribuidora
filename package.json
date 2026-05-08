@@ -20,7 +20,7 @@
     "db:update": "tsx src/scripts/update.ts",
     "build": "npm install --prefix web && npm run build --prefix web && npm install --prefix api",
     "start": "node --import tsx/esm api/src/server.ts",
-    "start:prod": "node --import tsx/esm src/scripts/update.ts --apply && node --import tsx/esm api/src/server.ts"
+    "start:prod": "node --import tsx/esm start.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.5.0",
