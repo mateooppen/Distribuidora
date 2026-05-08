@@ -15,7 +15,8 @@
     "db:scrape": "tsx src/scripts/scrape-lialg.ts",
     "db:sync": "tsx src/scripts/sync-lialg.ts",
     "db:categorize": "tsx src/scripts/categorize.ts",
-    "db:fix-marcas": "tsx src/scripts/fix-marcas-no-registra.ts"
+    "db:fix-marcas": "tsx src/scripts/fix-marcas-no-registra.ts",
+    "db:migrate": "tsx src/scripts/migrate-add-sync-runs.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.5.0",

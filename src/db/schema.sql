@@ -185,6 +185,21 @@ FOR EACH ROW BEGIN
     WHERE id_presentacion = OLD.id_presentacion;
 END;
 
+CREATE TABLE sync_runs (
+  id_sync_run            INTEGER PRIMARY KEY,
+  iniciado_en            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  finalizado_en          TEXT,
+  estado                 TEXT NOT NULL DEFAULT 'en_curso'
+    CHECK (estado IN ('en_curso','ok','error')),
+  productos_nuevos       INTEGER NOT NULL DEFAULT 0,
+  productos_actualizados INTEGER NOT NULL DEFAULT 0,
+  marcas_fusionadas      INTEGER NOT NULL DEFAULT 0,
+  duracion_seg           REAL,
+  error_mensaje          TEXT,
+  created_at             TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_sync_runs_iniciado ON sync_runs(iniciado_en);
+
 CREATE VIEW v_presentaciones_completas AS
 SELECT
   p.id_presentacion, p.ean_13, p.codigo_interno, p.formato,
