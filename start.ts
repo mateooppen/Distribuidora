@@ -5,7 +5,14 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Diagnóstico: loguear variables de entorno relevantes al arranque
+console.log('[start] ENV DB_PATH:', process.env['DB_PATH'] ?? '(undefined)');
+console.log('[start] ENV NODE_ENV:', process.env['NODE_ENV'] ?? '(undefined)');
+console.log('[start] __dirname:', __dirname);
+
 const DB_PATH = process.env['DB_PATH'] ?? path.resolve(__dirname, 'db', 'lialg.db');
+console.log('[start] DB_PATH resuelto:', DB_PATH);
 
 function dbIsEmpty(): boolean {
   if (!fs.existsSync(DB_PATH)) return true;
