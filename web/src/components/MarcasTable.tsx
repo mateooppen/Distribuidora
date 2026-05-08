@@ -59,7 +59,7 @@ const columns: ColumnDef<MarcaListItem>[] = [
     header: 'Productos',
     enableSorting: true,
     cell: ({ row }) => (
-      <span className="tabular-nums">
+      <span className="tabular-nums font-medium text-primary">
         {row.original.total_productos.toLocaleString('es-AR')}
       </span>
     ),
@@ -156,7 +156,7 @@ export function MarcasTable({
                 <TableRow
                   key={row.id}
                   className={cn(
-                    onRowClick && 'cursor-pointer hover:bg-muted/50 transition-colors',
+                    onRowClick && 'cursor-pointer',
                   )}
                   onClick={() => onRowClick?.(row.original.id_marca)}
                 >

@@ -70,13 +70,13 @@ export function MarcasPage() {
         </p>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      <div className="bg-card border border-border rounded-lg px-4 py-3 flex flex-wrap items-center gap-2 mb-5">
         <Input
           type="search"
           placeholder="Buscar marca por nombre…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
+          className="max-w-sm bg-background"
         />
         {search && (
           <Button variant="ghost" size="sm" onClick={() => setSearch('')}>
@@ -84,7 +84,7 @@ export function MarcasPage() {
           </Button>
         )}
         {typeof marcasQuery.data?.total === 'number' && (
-          <span className="text-sm text-muted-foreground ml-auto">
+          <span className="text-sm text-muted-foreground tabular-nums ml-auto">
             {marcasQuery.data.total.toLocaleString('es-AR')}{' '}
             {marcasQuery.data.total === 1 ? 'marca' : 'marcas'}
           </span>
