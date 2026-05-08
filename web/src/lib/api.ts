@@ -5,7 +5,9 @@
  * Tipos duplicados a propósito (boundary explícito de contrato HTTP).
  */
 
-const API_BASE = 'http://localhost:3001'
+// En producción el frontend se sirve desde el mismo origen que la API,
+// por lo que API_BASE queda vacío (rutas relativas). En dev apunta a :3001.
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 // ── Tipos ─────────────────────────────────────────────────────────────────
 
