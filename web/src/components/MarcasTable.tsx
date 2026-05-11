@@ -15,25 +15,19 @@ import {
 } from '@tanstack/react-table'
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { MarcaListItem } from '@/lib/api'
 
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100] as const
+
+// ── Columnas ──────────────────────────────────────────────────────────────
 
 const columns: ColumnDef<MarcaListItem>[] = [
   {
@@ -41,17 +35,14 @@ const columns: ColumnDef<MarcaListItem>[] = [
     accessorKey: 'nombre_marca',
     header: 'Marca',
     enableSorting: true,
-    cell: ({ row }) => <span className="font-medium">{row.original.nombre_marca}</span>,
-  },
-  {
-    id: 'empresa',
-    accessorKey: 'empresa_titular',
-    header: 'Empresa titular',
-    enableSorting: false,
-    cell: ({ row }) =>
-      row.original.empresa_titular ?? (
-        <span className="text-muted-foreground/60 italic">—</span>
-      ),
+    cell: ({ row }) => (
+      <span
+        className="font-sans font-semibold text-sm"
+        style={{ color: 'hsl(var(--text-primary))' }}
+      >
+        {row.original.nombre_marca}
+      </span>
+    ),
   },
   {
     id: 'productos',
@@ -59,12 +50,17 @@ const columns: ColumnDef<MarcaListItem>[] = [
     header: 'Productos',
     enableSorting: true,
     cell: ({ row }) => (
-      <span className="tabular-nums font-medium text-primary">
+      <span
+        className="font-mono tabular-nums font-semibold text-sm"
+        style={{ color: 'hsl(var(--accent-color))' }}
+      >
         {row.original.total_productos.toLocaleString('es-AR')}
       </span>
     ),
   },
 ]
+
+// ── Componente ────────────────────────────────────────────────────────────
 
 export interface MarcasTableProps {
   data: MarcaListItem[]
@@ -102,91 +98,173 @@ export function MarcasTable({
   })
 
   return (
-    <div className={cn('space-y-3', loading && 'opacity-60')}>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
+    <div className={cn('space-y-4', loading && 'opacity-70 transition-opacity')}>
+      {/* ── Tabla ──────────────────────────────────────────────────── */}
+      <div
+        className="overflow-auto"
+        style={{
+          background: 'hsl(var(--bg-surface))',
+          border: '1px solid hsl(var(--border-default))',
+        }}
+      >
+        <table className="w-full text-sm">
+          {/* Header */}
+          <thead
+            style={{
+              background: 'hsl(var(--bg-surface-raised))',
+              borderBottom: '2px solid hsl(var(--border-default))',
+            }}
+          >
             {table.getHeaderGroups().map((hg) => (
-              <TableRow key={hg.id}>
+              <tr key={hg.id}>
                 {hg.headers.map((header) => {
                   const canSort = header.column.getCanSort()
                   const sortDir = header.column.getIsSorted()
                   return (
-                    <TableHead
+                    <th
                       key={header.id}
-                      className={cn(canSort && 'cursor-pointer select-none')}
-                      onClick={
-                        canSort
-                          ? header.column.getToggleSortingHandler()
-                          : undefined
-                      }
+                      className={cn(
+                        'h-11 px-5 text-left align-middle font-mono text-[11px] uppercase tracking-widest font-semibold whitespace-nowrap',
+                        canSort && 'cursor-pointer select-none hover:opacity-80 transition-opacity',
+                      )}
+                      style={{ color: 'hsl(var(--text-muted))' }}
+                      onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                     >
-                      <div className="inline-flex items-center gap-1.5">
+                      <div className="inline-flex items-center gap-2">
+                        <span>$</span>
                         {flexRender(header.column.columnDef.header, header.getContext())}
                         {canSort && (
-                          <span className="text-muted-foreground/60">
+                          <span style={{ color: 'hsl(var(--text-muted))' }}>
                             {sortDir === 'asc' ? (
                               <ArrowUp className="h-3.5 w-3.5" />
                             ) : sortDir === 'desc' ? (
                               <ArrowDown className="h-3.5 w-3.5" />
                             ) : (
-                              <ArrowUpDown className="h-3.5 w-3.5" />
+                              <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
                             )}
                           </span>
                         )}
                       </div>
-                    </TableHead>
+                    </th>
                   )
                 })}
-              </TableRow>
+              </tr>
             ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-32 text-center text-muted-foreground text-sm"
+          </thead>
+
+          {/* Body */}
+          <tbody>
+            {loading && table.getRowModel().rows.length === 0 ? (
+              // Skeleton rows — primer load (sin datos previos)
+              Array.from({ length: pagination.pageSize }).map((_, idx) => (
+                <tr
+                  key={`skeleton-${idx}`}
+                  style={{
+                    background: idx % 2 === 1
+                      ? 'hsl(var(--bg-surface-raised) / 0.4)'
+                      : 'transparent',
+                    borderBottom: '1px solid hsl(var(--border-subtle))',
+                  }}
                 >
-                  {loading ? 'Cargando…' : 'Sin resultados'}
-                </TableCell>
-              </TableRow>
-            ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={cn(
-                    onRowClick && 'cursor-pointer',
-                  )}
-                  onClick={() => onRowClick?.(row.original.id_marca)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="py-3">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
+                  {/* Marca */}
+                  <td className="px-5 py-4 align-middle">
+                    <Skeleton className="h-4 w-2/3" />
+                  </td>
+                  {/* Productos */}
+                  <td className="px-5 py-4 align-middle">
+                    <Skeleton className="h-4 w-12" />
+                  </td>
+                </tr>
               ))
+            ) : table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="h-40 text-center"
+                  style={{ color: 'hsl(var(--text-muted))' }}
+                >
+                  <div className="flex flex-col items-center justify-center gap-2 py-4">
+                    <span
+                      className="font-mono text-2xl"
+                      style={{ color: 'hsl(var(--text-muted))' }}
+                    >
+                      ∅
+                    </span>
+                    <p
+                      className="font-mono text-sm font-semibold"
+                      style={{ color: 'hsl(var(--text-secondary))' }}
+                    >
+                      Sin resultados
+                    </p>
+                    <p
+                      className="font-mono text-xs"
+                      style={{ color: 'hsl(var(--text-muted))' }}
+                    >
+                      Probá con otro término de búsqueda.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row, idx) => {
+                const isOdd = idx % 2 === 1
+                return (
+                  <tr
+                    key={row.id}
+                    onClick={() => onRowClick?.(row.original.id_marca)}
+                    className={cn(
+                      'transition-colors',
+                      onRowClick && 'cursor-pointer',
+                    )}
+                    style={{
+                      background: isOdd
+                        ? 'hsl(var(--bg-surface-raised) / 0.4)'
+                        : 'transparent',
+                      borderBottom: '1px solid hsl(var(--border-subtle))',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'hsl(var(--bg-surface-raised) / 0.8)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = isOdd
+                        ? 'hsl(var(--bg-surface-raised) / 0.4)'
+                        : 'transparent'
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-5 py-4 align-middle">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                )
+              })
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
 
+      {/* ── Paginación ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <span>Mostrar</span>
+
+        {/* Selector de page size */}
+        <div className="flex items-center gap-2 font-mono text-xs" style={{ color: 'hsl(var(--text-muted))' }}>
+          <span>mostrar</span>
           <Select
             value={String(pagination.pageSize)}
             onValueChange={(v) =>
               onPaginationChange({ pageIndex: 0, pageSize: Number(v) })
             }
           >
-            <SelectTrigger className="h-8 w-[78px]">
+            <SelectTrigger
+              className="h-8 w-[72px] font-mono text-xs"
+              style={{ borderColor: 'hsl(var(--border-default))', borderRadius: 0 }}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {PAGE_SIZE_OPTIONS.map((n) => (
-                <SelectItem key={n} value={String(n)}>
+                <SelectItem key={n} value={String(n)} className="font-mono">
                   {n}
                 </SelectItem>
               ))}
@@ -195,30 +273,70 @@ export function MarcasTable({
           <span>por página</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="text-muted-foreground">
-            Página {pagination.pageIndex + 1} de {pageCount.toLocaleString('es-AR')}
+        {/* Navegación */}
+        <div className="flex items-center gap-4">
+          <span className="font-mono text-xs tabular-nums" style={{ color: 'hsl(var(--text-muted))' }}>
+            página{' '}
+            <span style={{ color: 'hsl(var(--text-primary))' }}>
+              {pagination.pageIndex + 1}
+            </span>
+            {' / '}
+            <span style={{ color: 'hsl(var(--text-secondary))' }}>
+              {pageCount.toLocaleString('es-AR')}
+            </span>
           </span>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
+            <PageButton
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage() || loading}
             >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
+              ‹ Anterior
+            </PageButton>
+            <PageButton
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage() || loading}
             >
-              Siguiente
-            </Button>
+              Siguiente ›
+            </PageButton>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+// ── Subcomponente: botón de paginación ────────────────────────────────────
+
+function PageButton({
+  onClick,
+  disabled,
+  children,
+}: {
+  onClick: () => void
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="h-8 px-3 text-xs font-mono transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      style={{
+        background: 'transparent',
+        color: 'hsl(var(--text-secondary))',
+        border: '1px solid hsl(var(--border-default))',
+        borderRadius: 0,
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) {
+          e.currentTarget.style.background = 'hsl(var(--bg-surface-raised))'
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent'
+      }}
+    >
+      {children}
+    </button>
   )
 }

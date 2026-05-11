@@ -1,40 +1,162 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /* ================================================================
+   * TEMA CLARO (default)
+   * shadcn/ui usa variables HSL sin hsl(); Tailwind las envuelve en hsl()
+   * ================================================================ */
   :root {
-    /* Fondos — slate oscuro, más profundo que antes */
-    --background:        222 18% 14%;
-    --foreground:        210 20% 96%;
+    /* --- shadcn/ui tokens (HSL sin wrapper) ----------------------- */
+    --background:           36 20% 97%;       /* off-white cálido */
+    --foreground:           222 25% 12%;
 
-    --card:              222 18% 18%;
-    --card-foreground:   210 20% 96%;
+    --card:                 0 0% 100%;
+    --card-foreground:      222 25% 12%;
 
-    --popover:           222 18% 17%;
-    --popover-foreground: 210 20% 96%;
+    --popover:              0 0% 100%;
+    --popover-foreground:   222 25% 12%;
 
-    /* Acento teal apagado — más sobrio, menos agresivo */
-    --primary:           174 35% 48%;
-    --primary-foreground: 0 0% 100%;
+    --primary:              174 45% 36%;      /* teal oscuro — acento principal */
+    --primary-foreground:   0 0% 100%;
 
-    --secondary:         222 14% 24%;
-    --secondary-foreground: 210 15% 80%;
+    --secondary:            36 15% 92%;
+    --secondary-foreground: 222 20% 25%;
 
-    --muted:             222 14% 22%;
-    --muted-foreground:  215 14% 68%;
+    --muted:                36 12% 93%;
+    --muted-foreground:     222 12% 45%;
 
-    --accent:            222 14% 26%;
-    --accent-foreground: 210 20% 96%;
+    --accent:               36 15% 90%;
+    --accent-foreground:    222 25% 12%;
 
-    --destructive:       0 65% 52%;
+    --destructive:          0 70% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border:            222 12% 24%;
-    --input:             222 12% 20%;
-    --ring:              174 35% 48%;
+    --border:               222 14% 88%;
+    --input:                222 14% 90%;
+    --ring:                 174 45% 36%;
 
     --radius: 0.5rem;
+
+    /* --- Tokens semánticos propios -------------------------------- */
+    --bg-base:              36 20% 97%;
+    --bg-surface:           0 0% 100%;
+    --bg-surface-raised:    36 15% 93%;
+    --bg-overlay:           222 25% 12%;      /* se usa con opacidad */
+
+    --text-primary:         222 25% 12%;
+    --text-secondary:       222 18% 32%;
+    --text-muted:           222 12% 52%;
+
+    --border-default:       222 14% 88%;
+    --border-subtle:        222 10% 93%;
+
+    --accent-color:         174 45% 36%;
+    --accent-hover:         174 45% 28%;
+
+    /* --- Estados -------------------------------------------------- */
+    --state-vigente:        142 55% 38%;
+    --state-vencido:        0 68% 46%;
+    --state-revision:       38 85% 46%;
+
+    /* --- KPI cards — borde izquierdo de identidad ─────────────── */
+    --kpi-productos:    20 60% 42%;    /* terracota / ladrillo cálido */
+    --kpi-marcas:       150 42% 34%;  /* verde bosque / oliva oscuro */
+    --kpi-categorias:   258 44% 48%;  /* púrpura / violeta */
+    --kpi-sync:         34 78% 46%;   /* ámbar / naranja quemado */
+
+    /* --- Categorías (saturadas, visibles sobre blanco) ------------ */
+    --cat-lacteos:          195 65% 42%;
+    --cat-panaderia:        28 75% 48%;
+    --cat-cereales:         44 80% 44%;
+    --cat-chocolates:       20 55% 38%;
+    --cat-dulces:           330 60% 48%;
+    --cat-bebidas:          210 70% 46%;
+    --cat-aceites:          78 52% 38%;
+    --cat-carnes:           4 58% 42%;
+    --cat-snacks:           262 48% 50%;
+    --cat-helados:          182 60% 38%;
+    --cat-suplementos:      156 50% 36%;
+    --cat-otros:            222 18% 48%;
+  }
+
+  /* ================================================================
+   * TEMA OSCURO
+   * Se activa poniendo clase `dark` en <html>
+   * ================================================================ */
+  .dark {
+    /* --- shadcn/ui tokens ---------------------------------------- */
+    --background:           222 18% 14%;
+    --foreground:           210 20% 96%;
+
+    --card:                 222 18% 18%;
+    --card-foreground:      210 20% 96%;
+
+    --popover:              222 18% 17%;
+    --popover-foreground:   210 20% 96%;
+
+    --primary:              174 35% 52%;
+    --primary-foreground:   0 0% 100%;
+
+    --secondary:            222 14% 24%;
+    --secondary-foreground: 210 15% 80%;
+
+    --muted:                222 14% 22%;
+    --muted-foreground:     215 14% 62%;
+
+    --accent:               222 14% 26%;
+    --accent-foreground:    210 20% 96%;
+
+    --destructive:          0 65% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border:               222 12% 24%;
+    --input:                222 12% 20%;
+    --ring:                 174 35% 52%;
+
+    /* --- Tokens semánticos propios -------------------------------- */
+    --bg-base:              222 18% 14%;
+    --bg-surface:           222 18% 18%;
+    --bg-surface-raised:    222 14% 24%;
+    --bg-overlay:           0 0% 0%;
+
+    --text-primary:         210 20% 96%;
+    --text-secondary:       210 16% 78%;
+    --text-muted:           215 14% 58%;
+
+    --border-default:       222 12% 24%;
+    --border-subtle:        222 10% 20%;
+
+    --accent-color:         174 35% 52%;
+    --accent-hover:         174 35% 62%;
+
+    /* --- Estados -------------------------------------------------- */
+    --state-vigente:        142 52% 48%;
+    --state-vencido:        0 65% 56%;
+    --state-revision:       38 80% 54%;
+
+    /* --- KPI cards ─────────────────────────────────────────────── */
+    --kpi-productos:    20 58% 56%;
+    --kpi-marcas:       150 42% 50%;
+    --kpi-categorias:   258 48% 64%;
+    --kpi-sync:         34 76% 58%;
+
+    /* --- Categorías (más luminosas para contrastar sobre oscuro) -- */
+    --cat-lacteos:          195 65% 56%;
+    --cat-panaderia:        28 75% 60%;
+    --cat-cereales:         44 80% 56%;
+    --cat-chocolates:       20 60% 56%;
+    --cat-dulces:           330 62% 62%;
+    --cat-bebidas:          210 70% 60%;
+    --cat-aceites:          78 55% 52%;
+    --cat-carnes:           4 60% 56%;
+    --cat-snacks:           262 52% 66%;
+    --cat-helados:          182 60% 52%;
+    --cat-suplementos:      156 52% 50%;
+    --cat-otros:            222 18% 62%;
   }
 }
 
@@ -42,13 +164,45 @@
   * {
     @apply border-border;
   }
+  html {
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.02em;
+  }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-muted rounded-full; }
+
+  /*
+   * Focus visible global para elementos interactivos sin focus propio.
+   * Necesario porque muchos <button> y <a> del proyecto usan styles inline
+   * (style={{}}) que NO incluyen focus state. Usar :focus-visible para que
+   * el anillo aparezca solo con teclado, no con mouse.
+   *
+   * Excluye elementos con :focus-visible:focus (lo que ya tiene shadcn vía
+   * `focus-visible:ring-2`) para no duplicar.
+   */
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible,
+  [role="combobox"]:focus-visible {
+    outline: 2px solid hsl(var(--accent-color));
+    outline-offset: 2px;
+  }
+
+  /* Inputs y selects necesitan el outline pegado, no con offset */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid hsl(var(--accent-color));
+    outline-offset: 0;
+  }
 }
 
 /*
@@ -66,4 +220,14 @@
   transform: translateX(100%) !important;
   transition: transform 0.25s ease-in !important;
   pointer-events: none;
+}
+
+/*
+ * Oculta el botón Close por defecto de Radix (posicionado absoluto en top-right
+ * del SheetContent). El panel de detalle del producto provee su propio botón
+ * de cerrar dentro del header sticky, mejor visible en mobile.
+ */
+[role="dialog"] > button[type="button"][aria-label="Close"],
+[role="dialog"] > .absolute.right-4.top-4 {
+  display: none !important;
 }

@@ -26,9 +26,12 @@ import type { EstadoCertificacion } from '../../../src/db/types.js';
 
 // ── Constantes de validación ──────────────────────────────────────────────
 
+// Claves de ordenamiento aceptadas. La expresión SQL real se elige en .orderBy() abajo.
+//   nombre → ordena por nombre_fantasia (o nombre_producto si está vacío)
+//   marca  → ordena por nombre de la marca
 const SORT_COLUMNS = {
-  nombre: 'p.nombre_producto',
-  marca: 'm.nombre_marca',
+  nombre: true,
+  marca: true,
 } as const;
 type SortKey = keyof typeof SORT_COLUMNS;
 
@@ -172,7 +175,14 @@ const productosRoutes: FastifyPluginAsync = async (fastify) => {
         'm.id_marca',
         'm.nombre_marca',
       ])
-      .orderBy(sql.ref(SORT_COLUMNS[sort]), order)
+      .orderBy(
+        sort === 'nombre'
+          // Expresión: nombre_fantasia (si no es null/vacío) o nombre_producto.
+          // COLLATE NOCASE para alfabético case-insensitive en SQLite.
+          ? sql`COALESCE(NULLIF(TRIM(p.nombre_fantasia), ''), p.nombre_producto) COLLATE NOCASE`
+          : sql`m.nombre_marca COLLATE NOCASE`,
+        order,
+      )
       .orderBy('p.id_producto', 'asc') // tiebreaker estable para paginación
       .limit(pageSize)
       .offset((page - 1) * pageSize)

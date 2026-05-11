@@ -13,7 +13,21 @@ const config: Config = {
       padding: '2rem',
       screens: { '2xl': '1400px' },
     },
+    screens: {
+      // Breakpoint extra para mobile chico (≥480px). Útil para mostrar/ocultar
+      // detalles secundarios (ej. "/sin-tacc" del logo) en pantallas muy chicas.
+      xs: '480px',
+      sm: '640px',
+      md: '768px',
+      lg: '1024px',
+      xl: '1280px',
+      '2xl': '1536px',
+    },
     extend: {
+      fontFamily: {
+        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['IBM Plex Sans', 'sans-serif'],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -47,6 +61,25 @@ const config: Config = {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
+        },
+        /* Tokens semánticos propios — disponibles como clases Tailwind */
+        'app-accent':    'hsl(var(--accent-color))',
+        'state-vigente': 'hsl(var(--state-vigente))',
+        'state-vencido': 'hsl(var(--state-vencido))',
+        'state-revision':'hsl(var(--state-revision))',
+        cat: {
+          lacteos:     'hsl(var(--cat-lacteos))',
+          panaderia:   'hsl(var(--cat-panaderia))',
+          cereales:    'hsl(var(--cat-cereales))',
+          chocolates:  'hsl(var(--cat-chocolates))',
+          dulces:      'hsl(var(--cat-dulces))',
+          bebidas:     'hsl(var(--cat-bebidas))',
+          aceites:     'hsl(var(--cat-aceites))',
+          carnes:      'hsl(var(--cat-carnes))',
+          snacks:      'hsl(var(--cat-snacks))',
+          helados:     'hsl(var(--cat-helados))',
+          suplementos: 'hsl(var(--cat-suplementos))',
+          otros:       'hsl(var(--cat-otros))',
         },
       },
       borderRadius: {

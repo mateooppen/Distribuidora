@@ -11,9 +11,8 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, ChevronsUpDown, X } from 'lucide-react'
+import { ChevronsUpDown } from 'lucide-react'
 import { useDebouncedValue } from '@/lib/useDebouncedValue'
-import { Button } from '@/components/ui/button'
 import {
   Command,
   CommandEmpty,
@@ -40,7 +39,7 @@ export interface MarcaComboboxProps {
 export function MarcaCombobox({
   value,
   onChange,
-  placeholder = 'Marca',
+  placeholder = 'Todas las marcas',
   className,
 }: MarcaComboboxProps) {
   const [open, setOpen] = useState(false)
@@ -77,81 +76,142 @@ export function MarcaCombobox({
     setSearch('')
   }
 
+  const hayMarca = value !== null
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
+        <button
+          type="button"
           role="combobox"
           aria-expanded={open}
           className={cn(
-            'w-[240px] justify-between font-normal',
-            value === null && 'text-muted-foreground',
+            'w-full h-10 px-3 flex items-center justify-between gap-2 font-mono text-sm transition-colors',
             className,
           )}
+          style={{
+            background: 'hsl(var(--bg-surface))',
+            color: hayMarca
+              ? 'hsl(var(--text-primary))'
+              : 'hsl(var(--text-muted))',
+            border: '1px solid hsl(var(--border-default))',
+            borderRadius: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'hsl(var(--bg-surface-raised))'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'hsl(var(--bg-surface))'
+          }}
         >
-          <span className="truncate">{triggerLabel}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+          <span className="truncate text-left">{triggerLabel}</span>
+          <ChevronsUpDown
+            className="h-4 w-4 shrink-0"
+            style={{ color: 'hsl(var(--text-muted))', opacity: 0.6 }}
+          />
+        </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[320px] p-0" align="start">
-        <Command shouldFilter={false}>
+      <PopoverContent
+        className="w-[320px] p-0"
+        align="start"
+        style={{
+          background: 'hsl(var(--bg-surface))',
+          border: '1px solid hsl(var(--border-default))',
+          borderRadius: 0,
+        }}
+      >
+        <Command shouldFilter={false} className="bg-transparent">
           <CommandInput
-            placeholder="Buscar marca…"
+            placeholder="buscar marca…"
             value={search}
             onValueChange={setSearch}
+            className="font-mono text-sm"
           />
           <CommandList>
             {optionsQuery.isFetching && (
-              <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                Buscando…
+              <div
+                className="px-3 py-6 text-center font-mono text-xs"
+                style={{ color: 'hsl(var(--text-muted))' }}
+              >
+                buscando…
               </div>
             )}
 
             {!optionsQuery.isFetching && (
               <>
                 {(optionsQuery.data?.data.length ?? 0) === 0 ? (
-                  <CommandEmpty>Sin coincidencias</CommandEmpty>
+                  <CommandEmpty>
+                    <span className="font-mono text-xs" style={{ color: 'hsl(var(--text-muted))' }}>
+                      sin coincidencias
+                    </span>
+                  </CommandEmpty>
                 ) : (
                   <CommandGroup
                     heading={
-                      debouncedSearch
-                        ? `Coincidencias (${optionsQuery.data?.data.length})`
-                        : 'Top marcas'
+                      <span
+                        className="font-mono text-[11px] uppercase tracking-widest"
+                        style={{ color: 'hsl(var(--text-muted))' }}
+                      >
+                        ${' '}
+                        {debouncedSearch
+                          ? `coincidencias (${optionsQuery.data?.data.length})`
+                          : 'top marcas'}
+                      </span>
                     }
                   >
-                    {/* Opción "Todas" siempre arriba */}
-                    {value !== null && (
+                    {/* Quitar filtro — sólo si hay marca seleccionada */}
+                    {hayMarca && (
                       <CommandItem
                         key="__todas__"
                         value="__todas__"
                         onSelect={() => handleSelect(null)}
-                        className="text-muted-foreground"
+                        className="font-mono text-xs"
+                        style={{ color: 'hsl(var(--state-vencido))' }}
                       >
-                        <X className="mr-2 h-4 w-4" />
+                        <span className="mr-2">×</span>
                         Quitar filtro
                       </CommandItem>
                     )}
 
-                    {optionsQuery.data?.data.map((m) => (
-                      <CommandItem
-                        key={m.id_marca}
-                        value={`${m.id_marca}-${m.nombre_marca}`}
-                        onSelect={() => handleSelect(m.id_marca)}
-                      >
-                        <Check
-                          className={cn(
-                            'mr-2 h-4 w-4',
-                            value === m.id_marca ? 'opacity-100' : 'opacity-0',
-                          )}
-                        />
-                        <span className="flex-1 truncate">{m.nombre_marca}</span>
-                        <span className="ml-2 text-xs text-muted-foreground tabular-nums">
-                          {m.total_productos.toLocaleString('es-AR')}
-                        </span>
-                      </CommandItem>
-                    ))}
+                    {optionsQuery.data?.data.map((m) => {
+                      const isActive = value === m.id_marca
+                      return (
+                        <CommandItem
+                          key={m.id_marca}
+                          value={`${m.id_marca}-${m.nombre_marca}`}
+                          onSelect={() => handleSelect(m.id_marca)}
+                          className="font-mono text-sm"
+                        >
+                          {/* Indicador de selección: punto de color */}
+                          <span
+                            className="mr-2 inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{
+                              background: isActive
+                                ? 'hsl(var(--accent-color))'
+                                : 'transparent',
+                            }}
+                          />
+                          <span
+                            className="flex-1 truncate"
+                            style={{
+                              color: isActive
+                                ? 'hsl(var(--accent-color))'
+                                : 'hsl(var(--text-primary))',
+                              fontWeight: isActive ? 600 : 400,
+                            }}
+                          >
+                            {m.nombre_marca}
+                          </span>
+                          <span
+                            className="ml-2 text-[11px] tabular-nums"
+                            style={{ color: 'hsl(var(--text-muted))' }}
+                          >
+                            {m.total_productos.toLocaleString('es-AR')}
+                          </span>
+                        </CommandItem>
+                      )
+                    })}
                   </CommandGroup>
                 )}
               </>

@@ -117,50 +117,98 @@ export function ProductosPage() {
   })
 
   // ── Render ───────────────────────────────────────────────────────────
+  const total = productosQuery.data?.total
+  const totalStr = total !== undefined ? total.toLocaleString('es-AR') : '...'
+
   return (
-    <div className="container mx-auto py-6 px-4 max-w-[1400px]">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Productos</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Productos certificados por ANMAT, importados del listado LIALG.
-        </p>
-      </header>
+    <div
+      className="min-h-[calc(100vh-3.5rem)]"
+      style={{ background: 'hsl(var(--bg-base))' }}
+    >
+      <div className="container mx-auto py-6 px-4 sm:py-10 sm:px-6 max-w-[1400px]">
 
-      <Filtros
-        search={search}
-        onSearchChange={setSearch}
-        marca={marca}
-        onMarcaChange={setMarca}
-        categoria={categoria}
-        onCategoriaChange={setCategoria}
-        categorias={categorias}
-        total={productosQuery.data?.total}
-      />
+        {/* ── Header de página ──────────────────────────────────────── */}
+        <header className="flex items-baseline justify-between gap-4 flex-wrap mb-6 sm:mb-8">
+          <div>
+            <h1 className="font-mono leading-none mb-3">
+              <span
+                className="text-4xl sm:text-5xl font-bold tracking-tight"
+                style={{ color: 'hsl(var(--text-primary))' }}
+              >
+                Productos
+              </span>
+            </h1>
+            <p
+              className="text-sm font-mono"
+              style={{ color: 'hsl(var(--text-secondary))' }}
+            >
+              Certificados por ANMAT, importados del listado LIALG.
+            </p>
+          </div>
 
-      {productosQuery.error && (
-        <div className="border border-destructive/50 bg-destructive/10 text-destructive rounded-md p-4 text-sm mb-3">
-          Error: {productosQuery.error instanceof Error
-            ? productosQuery.error.message
-            : 'desconocido'}
-        </div>
-      )}
+          {/*
+           * Contador de resultados.
+           * Desktop: stack vertical a la derecha (label arriba, número abajo).
+           * Mobile: inline-flex con label al lado del número (más compacto).
+           */}
+          <div className="flex items-baseline gap-2 sm:flex-col sm:items-end sm:gap-1 sm:text-right">
+            <p
+              className="text-xs font-mono uppercase tracking-widest"
+              style={{ color: 'hsl(var(--text-muted))' }}
+            >
+              resultados
+            </p>
+            <p
+              className="text-2xl sm:text-3xl font-mono font-bold tabular-nums leading-none"
+              style={{ color: 'hsl(var(--accent-color))' }}
+            >
+              {totalStr}
+            </p>
+          </div>
+        </header>
 
-      <ProductosTable
-        data={productosQuery.data?.data ?? []}
-        total={productosQuery.data?.total ?? 0}
-        pagination={pagination}
-        onPaginationChange={setPagination}
-        sorting={sorting}
-        onSortingChange={setSorting}
-        loading={productosQuery.isFetching}
-        selectedId={selectedId}
-        onRowClick={setSelectedId}
-      />
+        <Filtros
+          search={search}
+          onSearchChange={setSearch}
+          marca={marca}
+          onMarcaChange={setMarca}
+          categoria={categoria}
+          onCategoriaChange={setCategoria}
+          categorias={categorias}
+        />
 
-      <ProductoDetalle
-        productoId={selectedId}
-        onClose={() => setSelectedId(null)}
-      />
+        {productosQuery.error && (
+          <div
+            className="p-4 text-sm font-mono mb-3"
+            style={{
+              border: '1px solid hsl(var(--state-vencido))',
+              background: 'hsl(var(--state-vencido) / 0.08)',
+              color: 'hsl(var(--state-vencido))',
+            }}
+          >
+            Error: {productosQuery.error instanceof Error
+              ? productosQuery.error.message
+              : 'desconocido'}
+          </div>
+        )}
+
+        <ProductosTable
+          data={productosQuery.data?.data ?? []}
+          total={productosQuery.data?.total ?? 0}
+          pagination={pagination}
+          onPaginationChange={setPagination}
+          sorting={sorting}
+          onSortingChange={setSorting}
+          loading={productosQuery.isFetching}
+          selectedId={selectedId}
+          onRowClick={setSelectedId}
+        />
+
+        <ProductoDetalle
+          productoId={selectedId}
+          onClose={() => setSelectedId(null)}
+        />
+      </div>
     </div>
   )
 }

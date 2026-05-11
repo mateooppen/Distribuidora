@@ -19,9 +19,15 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
+    style={{
+      // Overlay coherente con el tema (claro u oscuro). En light queda como un velo
+      // gris-translúcido, en dark como un velo negro suave. El blur de 2px da
+      // sensación de profundidad sin oscurecer demasiado.
+      background: 'hsl(var(--bg-overlay) / 0.5)',
+    }}
     {...props}
     ref={ref}
   />
