@@ -1,5 +1,5 @@
 [build]
-builder = "railpack"
+builder = "nixpacks"
 
 [deploy]
-startCommand = "mkdir -p /data && npm run start:prod"
+startCommand = "npm run start:prod"
