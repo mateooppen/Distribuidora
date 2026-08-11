@@ -18,7 +18,7 @@
     "db:fix-marcas": "tsx src/scripts/fix-marcas-no-registra.ts",
     "db:migrate": "tsx src/scripts/migrate-add-sync-runs.ts",
     "db:update": "tsx src/scripts/update.ts",
-    "build": "npm install --prefix web && npm run build --prefix web && npm install --prefix api",
+    "build": "npm install --include=dev --prefix web && npm run build --prefix web && npm install --include=dev --prefix api && npm run db:update -- --apply",
     "start": "node --import tsx/esm api/src/server.ts",
     "start:prod": "node --import tsx/esm start.ts"
   },
