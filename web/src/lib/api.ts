@@ -262,18 +262,6 @@ async function get<T>(path: string): Promise<T> {
   return (await res.json()) as T
 }
 
-async function post<T>(path: string, token: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string }
-    throw new Error(body.error ?? `${res.status} ${res.statusText}`)
-  }
-  return (await res.json()) as T
-}
-
 function buildQuery(params: Record<string, unknown>): string {
   const sp = new URLSearchParams()
   for (const [k, v] of Object.entries(params)) {
@@ -332,8 +320,7 @@ export const api = {
     return get<MarcasResponse>(`/api/filtros/marcas${query}`)
   },
 
+  // Solo lectura. No hay método para disparar la actualización: la base se
+  // regenera en build time, no en runtime (ver api/src/routes/admin.ts).
   syncStatus: () => get<UpdateStatusResponse>('/api/admin/update/status'),
-
-  triggerUpdate: (token: string) =>
-    post<{ ok: boolean; mensaje: string }>('/api/admin/update', token),
 }

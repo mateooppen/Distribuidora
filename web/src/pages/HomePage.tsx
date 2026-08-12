@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api, type CategoriaNode } from '@/lib/api'
@@ -96,40 +96,22 @@ function KpiCard({ label, value, accentVar, isLast }: KpiCardProps) {
 
 // ── Sync Card ──────────────────────────────────────────────────────────────────
 
+/**
+ * Panel informativo de sincronización — solo lectura.
+ *
+ * No tiene acción para disparar la actualización, y es deliberado: la base se
+ * regenera durante el build (ver .github/workflows/rebuild-programado.yml), no
+ * en caliente. Disparar el pipeline desde acá no persistiría y podía tumbar el
+ * servicio. Se actualiza redesplegando, desde GitHub Actions o Render.
+ */
 function SyncCard() {
-  const queryClient = useQueryClient()
-  const [showTokenInput, setShowTokenInput] = useState(false)
-  const [tokenInput, setTokenInput] = useState('')
-  const [token, setToken] = useState('')
-  const [mensaje, setMensaje] = useState<string | null>(null)
-
   const { data, isLoading } = useQuery({
     queryKey: ['sync-status'],
     queryFn: () => api.syncStatus(),
     refetchInterval: (query) => query.state.data?.en_curso ? 10_000 : 60_000,
   })
 
-  const mutation = useMutation({
-    mutationFn: () => api.triggerUpdate(token),
-    onSuccess: (res) => {
-      setMensaje(res.mensaje)
-      setShowTokenInput(false)
-      setTokenInput('')
-      setTimeout(() => {
-        void queryClient.invalidateQueries({ queryKey: ['sync-status'] })
-      }, 2000)
-    },
-    onError: (err: Error) => setMensaje(`Error: ${err.message}`),
-  })
-
   const ultimo = data?.ultimo_run ?? null
-
-  const handleDispararUpdate = () => {
-    const t = tokenInput.trim()
-    if (!t) return
-    setToken(t)
-    mutation.mutate()
-  }
 
   const estadoColor =
     ultimo?.estado === 'ok'       ? 'hsl(var(--state-vigente))' :
@@ -238,79 +220,17 @@ function SyncCard() {
           </p>
         )}
 
-        {mensaje && (
-          <p className="text-xs font-mono mt-2" style={{ color: 'hsl(var(--text-muted))' }}>
-            {mensaje}
-          </p>
-        )}
-      </div>
-
-      {/* Zona de acción — separada por borde y fondo distinto */}
-      <div
-        className="px-4 py-3"
-        style={{
-          background: 'hsl(var(--bg-surface))',
-          borderTop: '1px solid hsl(var(--border-default))',
-        }}
-      >
-        {showTokenInput ? (
-          <div className="space-y-2">
-            <Input
-              type="password"
-              placeholder="token de administración"
-              value={tokenInput}
-              className="h-8 text-xs font-mono rounded-none w-full"
-              style={{
-                borderColor: 'hsl(var(--border-default))',
-                borderRadius: 0,
-              }}
-              onChange={(e) => setTokenInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleDispararUpdate()}
-              autoFocus
-            />
-            <div className="flex gap-2">
-              <button
-                className="flex-1 h-8 text-xs font-mono font-semibold transition-opacity disabled:opacity-40"
-                style={{
-                  background: 'hsl(var(--kpi-sync))',
-                  color: '#fff',
-                  border: '1px solid hsl(var(--kpi-sync))',
-                  borderRadius: 0,
-                }}
-                onClick={handleDispararUpdate}
-                disabled={!tokenInput.trim() || mutation.isPending}
-              >
-                {mutation.isPending ? 'Enviando...' : 'Confirmar'}
-              </button>
-              <button
-                className="h-8 px-4 text-xs font-mono transition-colors"
-                style={{
-                  background: 'transparent',
-                  color: 'hsl(var(--text-secondary))',
-                  border: '1px solid hsl(var(--border-default))',
-                  borderRadius: 0,
-                }}
-                onClick={() => { setShowTokenInput(false); setTokenInput('') }}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            className="w-full h-9 text-xs font-mono font-semibold uppercase tracking-wider transition-opacity disabled:opacity-40"
-            style={{
-              background: 'hsl(var(--kpi-sync))',
-              color: '#fff',
-              border: '1px solid hsl(var(--kpi-sync))',
-              borderRadius: 0,
-            }}
-            onClick={() => { setShowTokenInput(true); setMensaje(null) }}
-            disabled={!!data?.en_curso}
-          >
-            ▶ Actualizar ahora
-          </button>
-        )}
+        {/* Nota al pie: explica que la actualización es automática, para que la
+            ausencia de un botón no se lea como una funcionalidad faltante. */}
+        <p
+          className="text-[11px] font-mono mt-3 pt-2"
+          style={{
+            color: 'hsl(var(--text-muted))',
+            borderTop: '1px solid hsl(var(--border-subtle))',
+          }}
+        >
+          Actualización automática semanal.
+        </p>
       </div>
     </div>
   )
