@@ -26,6 +26,12 @@ const PROGRESS_PATH = `${OUTPUT_PATH}.progress`;
 const BASE_HOST = 'listadoalg.anmat.gob.ar';
 const DELAY_MS = 600; // ms entre requests
 
+// Reconexiones consecutivas antes de abortar. ANMAT corta la sesión a los
+// pocos minutos de scrapeo y responde 302; recuperarse de eso es lo normal en
+// un recorrido de ~710 páginas. Si ni así se puede seguir, el scrape falla en
+// vez de devolver una lista parcial.
+const MAX_REINTENTOS_SESION = 3;
+
 export interface ProductoLialg {
   rnpa: string;
   marca: string;
@@ -355,41 +361,36 @@ function processResponse(
   };
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Sesión ───────────────────────────────────────────────────────────────────
 
-async function main(): Promise<void> {
-  const isSave    = process.argv.includes('--save');
-  const isForce   = process.argv.includes('--force');
-  const isVerbose = process.argv.includes('--verbose');
-
-  if (!isForce && fs.existsSync(OUTPUT_PATH)) {
-    const data = JSON.parse(fs.readFileSync(OUTPUT_PATH, 'utf8')) as ProductoLialg[];
-    log.info(`Ya existe data/lialg-actual.json con ${data.length} productos.`);
-    log.info('Usá --force para re-scrapear o npm run db:sync para sincronizar.');
-    return;
-  }
-
-  log.info('Scrape: obteniendo sesión ANMAT...');
+/**
+ * Abre una sesión con ANMAT y ejecuta la búsqueda inicial, dejando el listado
+ * posicionado en la página 1.
+ *
+ * Se usa al arrancar y también para reconectar: el sitio corta la sesión a los
+ * pocos minutos y responde 302 a los POST de paginación. Ante eso hay que
+ * rehacer el handshake completo (cookie + VIEWSTATE + búsqueda), porque el
+ * VIEWSTATE viejo ya no sirve.
+ */
+async function establecerSesion(
+  isVerbose: boolean,
+): Promise<{ state: SessionState; products: ProductoLialg[]; maxPage: number }> {
   let state = await initialGet();
 
   if (!state.viewstate) {
-    log.error('No se pudo obtener VIEWSTATE. Verificar la URL del sitio.');
-    process.exit(1);
+    throw new Error('No se pudo obtener VIEWSTATE. Verificar la URL del sitio.');
   }
 
-  // ── Estrategia 1: POST sin ASYNCPOST (respuesta HTML completa) ────────────
-  log.info('Scrape: búsqueda inicial (página 1)...');
-
+  // Estrategia 1: POST sin ASYNCPOST (respuesta HTML completa).
   const searchBody = baseFormBody(state, {
     'ctl00$ContentPlaceHolder1$cmdBuscar': 'Buscar',
   });
 
   let res = await httpsRequest('POST', '/Home', searchBody, postHeaders(state, false));
-
   let { products, state: newState, maxPage } = processResponse(res, state, isVerbose);
   state = newState;
 
-  // ── Estrategia 2: si no hubo productos, intentar con ASYNCPOST ────────────
+  // Estrategia 2: si no hubo productos, intentar con UpdatePanel (ASYNCPOST).
   if (products.length === 0) {
     log.warn('Respuesta HTML sin productos. Intentando con UpdatePanel (ASYNCPOST)...');
 
@@ -407,6 +408,28 @@ async function main(): Promise<void> {
     maxPage  = r2.maxPage;
   }
 
+  return { state, products, maxPage };
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+async function main(): Promise<void> {
+  const isSave    = process.argv.includes('--save');
+  const isForce   = process.argv.includes('--force');
+  const isVerbose = process.argv.includes('--verbose');
+
+  if (!isForce && fs.existsSync(OUTPUT_PATH)) {
+    const data = JSON.parse(fs.readFileSync(OUTPUT_PATH, 'utf8')) as ProductoLialg[];
+    log.info(`Ya existe data/lialg-actual.json con ${data.length} productos.`);
+    log.info('Usá --force para re-scrapear o npm run db:sync para sincronizar.');
+    return;
+  }
+
+  log.info('Scrape: obteniendo sesión ANMAT...');
+  log.info('Scrape: búsqueda inicial (página 1)...');
+
+  let { state, products, maxPage } = await establecerSesion(isVerbose);
+
   if (products.length === 0) {
     log.error('La primera página no devolvió productos.');
     log.error('Posibles causas: cambio en la estructura del sitio, campo de formulario distinto.');
@@ -417,7 +440,14 @@ async function main(): Promise<void> {
   log.info(`Página 1: ${products.length} productos. Máx página visible en pager: ${maxPage}`);
 
   const allProducts: ProductoLialg[] = [...products];
+
+  // RNPAs ya recolectados. Sirve para detectar que una reconexión no logró
+  // retomar la paginación y volvió al principio del listado.
+  const rnpaVistos = new Set<string>(products.map((p) => p.rnpa).filter(Boolean));
+
   let page = 2;
+  // Reconexiones consecutivas fallidas. Se resetea al retomar bien.
+  let reintentos = 0;
 
   // ── Paginación ────────────────────────────────────────────────────────────
   while (true) {
@@ -428,11 +458,32 @@ async function main(): Promise<void> {
       '__EVENTARGUMENT': `Page$${page}`,
     });
 
-    res = await httpsRequest('POST', '/Home', pageBody, postHeaders(state, false));
+    const res = await httpsRequest('POST', '/Home', pageBody, postHeaders(state, false));
 
+    // Un status distinto de 200 (típicamente 302) NO es el fin del listado:
+    // es ANMAT cortando la sesión, cosa que pasa a los pocos minutos de
+    // scrapeo. Antes se hacía `break` acá, y el pipeline seguía adelante
+    // publicando una base truncada sin que nada fallara: así se perdieron
+    // ~10.000 productos en la corrida del 2026-08-12, que cortó en la página
+    // 515 de ~710. Ahora se reconecta y se retoma desde la misma página.
     if (res.status !== 200) {
-      log.warn(`Página ${page}: status ${res.status}. Deteniendo paginación.`);
-      break;
+      reintentos++;
+      if (reintentos > MAX_REINTENTOS_SESION) {
+        throw new Error(
+          `Página ${page}: status ${res.status} tras ${MAX_REINTENTOS_SESION} reconexiones. ` +
+          `El scrape quedó incompleto (${allProducts.length} productos). Se aborta a propósito: ` +
+          `es preferible fallar y conservar la base anterior que publicar uno parcial.`,
+        );
+      }
+
+      log.warn(
+        `Página ${page}: status ${res.status}. Sesión caída, ` +
+        `reconectando (intento ${reintentos}/${MAX_REINTENTOS_SESION})...`,
+      );
+      await delay(DELAY_MS * 5);
+      const nueva = await establecerSesion(isVerbose);
+      state = nueva.state;
+      continue; // reintenta la misma página con la sesión nueva
     }
 
     const r = processResponse(res, state, isVerbose);
@@ -443,6 +494,37 @@ async function main(): Promise<void> {
       break;
     }
 
+    // Tras reconectar, la sesión nueva arranca en la página 1. Si el salto a
+    // Page$N no la respetó, esta página trae solo RNPAs ya vistos: sin esta
+    // guarda el scrape avanzaría el contador acumulando duplicados y daría
+    // por completo un recorrido que en realidad se quedó al principio.
+    if (reintentos > 0) {
+      const nuevos = r.products.filter((p) => p.rnpa && !rnpaVistos.has(p.rnpa));
+      if (nuevos.length === 0) {
+        if (reintentos > MAX_REINTENTOS_SESION) {
+          throw new Error(
+            `Página ${page}: tras reconectar no se pudo retomar la paginación ` +
+            `(la respuesta solo trae productos ya vistos). Scrape incompleto ` +
+            `(${allProducts.length} productos). Se aborta.`,
+          );
+        }
+        reintentos++;
+        log.warn(
+          `Página ${page}: la reconexión no retomó la paginación. ` +
+          `Reintentando (${reintentos}/${MAX_REINTENTOS_SESION})...`,
+        );
+        await delay(DELAY_MS * 5);
+        const nueva = await establecerSesion(isVerbose);
+        state = nueva.state;
+        continue;
+      }
+      log.info(`Página ${page}: paginación retomada con éxito.`);
+      reintentos = 0;
+    }
+
+    for (const p of r.products) {
+      if (p.rnpa) rnpaVistos.add(p.rnpa);
+    }
     allProducts.push(...r.products);
 
     const total = allProducts.length;
