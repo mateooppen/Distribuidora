@@ -1,5 +1,21 @@
+/**
+ * Entry point de producción.
+ *
+ * Verifica que la base exista y levanta el servidor. Nada más.
+ *
+ * Antes, si no encontraba la base, corría el pipeline completo acá mismo. Ya no:
+ * la base se genera en GitHub Actions y el build la descarga como release asset
+ * (ver scripts/fetch-db.mjs). Correr el scrape al arranque significaría demorar
+ * ~20 minutos en levantar y acumular ~35.500 productos en memoria dentro de un
+ * contenedor de 512 MB — con riesgo de morir por falta de memoria.
+ *
+ * Si la base falta, el servidor arranca igual: la API responde 503 en los
+ * endpoints de datos, que es un modo degradado honesto y diagnosticable. La
+ * solución en ese caso es correr el workflow "Actualizar base de datos".
+ */
+
 import fs from 'node:fs';
-import { spawnSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
@@ -20,17 +36,11 @@ function dbIsEmpty(): boolean {
 }
 
 if (dbIsEmpty()) {
-  console.log(`[start] DB no encontrada o vacía en ${DB_PATH}. Corriendo pipeline inicial...`);
-  const result = spawnSync(
-    'node',
-    ['--import', 'tsx/esm', 'src/scripts/update.ts', '--apply'],
-    { stdio: 'inherit', cwd: __dirname }
-  );
-  if (result.status !== 0) {
-    console.error('[start] Pipeline falló. El servidor arrancará igual (endpoints responderán 503 hasta próxima sincronización).');
-  } else {
-    console.log('[start] Pipeline completado. Iniciando servidor...');
-  }
+  console.error(`[start] ADVERTENCIA: no hay base de datos utilizable en ${DB_PATH}.`);
+  console.error('[start] Los endpoints de datos van a responder 503.');
+  console.error('[start] Para resolverlo: correr el workflow "Actualizar base de datos"');
+  console.error('[start] desde la pestaña Actions del repositorio. Eso genera la base,');
+  console.error('[start] la publica y dispara un deploy nuevo que la descarga.');
 } else {
   console.log(`[start] DB encontrada en ${DB_PATH}. Iniciando servidor...`);
 }

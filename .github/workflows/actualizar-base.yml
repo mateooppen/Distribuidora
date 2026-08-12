@@ -1,0 +1,97 @@
+# Genera la base de datos y la publica como release asset.
+#
+# QUÉ HACE
+# --------
+# 1. Corre el pipeline completo (scrape de ANMAT → sync → normalización de
+#    marcas → categorización), que tarda ~20 minutos.
+# 2. Publica el db/lialg.db resultante como asset del release `base-datos`,
+#    pisando el anterior.
+# 3. Dispara un deploy en Render, que baja ese archivo y lo sirve.
+#
+# POR QUÉ ACÁ Y NO EN EL BUILD DE RENDER
+# --------------------------------------
+# Generar la base y publicar cambios de código son dos cosas independientes y
+# conviene que tengan tiempos distintos. Cuando el scrape corría dentro del
+# build, tocar un filtro o un botón costaba 20 minutos y regeneraba datos que
+# no habían cambiado.
+#
+# Además el repositorio es público, así que los minutos de GitHub Actions son
+# ilimitados: el scrape sale gratis acá, mientras que en Render consumía de los
+# 500 minutos mensuales del plan.
+#
+# CÓMO SE DISPARA A MANO
+# ----------------------
+# Pestaña Actions → "Actualizar base de datos" → botón "Run workflow".
+# Es también la forma de crear el release la primera vez: hasta que exista, el
+# build de Render va a fallar avisando que no encuentra la base.
+#
+# REQUISITOS
+# ----------
+# Secret RENDER_DEPLOY_HOOK con la URL del deploy hook (Render → Settings →
+# Deploy Hook). GITHUB_TOKEN lo provee GitHub automáticamente.
+#
+# ATENCIÓN: GitHub deshabilita los workflows programados en repositorios sin
+# actividad durante 60 días. Si el repo se aquieta, hay que reactivarlo a mano
+# desde la pestaña Actions. No avisa.
+
+name: Actualizar base de datos
+
+on:
+  schedule:
+    # Domingos 03:00 UTC (sábado 00:00 en Argentina).
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+# Necesario para que `gh release` pueda publicar el asset.
+permissions:
+  contents: write
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    # El scrape ronda los 20 min; el margen cubre lentitud del sitio de ANMAT.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      # Las herramientas del pipeline (tsx, better-sqlite3) son devDependencies,
+      # de ahí el --include=dev.
+      - name: Instalar dependencias
+        run: npm install --include=dev
+
+      - name: Generar la base
+        run: npm run db:update -- --apply
+
+      - name: Publicar la base como release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # El release es un contenedor fijo que se reutiliza: solo se reemplaza
+          # el asset. Así la URL de descarga nunca cambia.
+          if ! gh release view base-datos >/dev/null 2>&1; then
+            gh release create base-datos \
+              --title "Base de datos" \
+              --notes "Base generada automáticamente por el pipeline. El asset se reemplaza en cada actualización."
+          fi
+
+          gh release upload base-datos db/lialg.db --clobber
+
+      - name: Disparar deploy en Render
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "ERROR: falta el secret RENDER_DEPLOY_HOOK."
+            echo "Cargarlo en Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          # -f hace que curl falle si el status no es 2xx, para que el job se
+          # marque en rojo si el hook dejó de ser válido.
+          curl -f -s -S -o /dev/null -X POST "$DEPLOY_HOOK"
+          echo "Deploy solicitado. Render va a bajar la base recién publicada."
