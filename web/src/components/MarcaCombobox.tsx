@@ -27,13 +27,21 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
-import { api } from '@/lib/api'
+import { api, type ContextoFiltros } from '@/lib/api'
 
 export interface MarcaComboboxProps {
   value: number | null
   onChange: (id: number | null) => void
   placeholder?: string
   className?: string
+  /**
+   * Filtros activos del listado. Acota las marcas ofrecidas a las que tienen
+   * productos en ese contexto: buscando "harina de arroz" aparecen las marcas
+   * que la producen, no las 4.951 del padrón. La marca ya elegida no se
+   * incluye en el contexto (lo ignora la API), así se puede saltar de una a
+   * otra sin limpiar el filtro primero.
+   */
+  contexto?: ContextoFiltros
 }
 
 export function MarcaCombobox({
@@ -41,6 +49,7 @@ export function MarcaCombobox({
   onChange,
   placeholder = 'Todas las marcas',
   className,
+  contexto,
 }: MarcaComboboxProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -54,10 +63,11 @@ export function MarcaCombobox({
     staleTime: 5 * 60_000,
   })
 
-  // Listado dinámico para el dropdown.
+  // Listado dinámico para el dropdown. El contexto entra en la queryKey para
+  // que cambiar la búsqueda o la categoría refresque las marcas ofrecidas.
   const optionsQuery = useQuery({
-    queryKey: ['filtros-marcas', debouncedSearch],
-    queryFn: () => api.filtrosMarcas(debouncedSearch, 30),
+    queryKey: ['filtros-marcas', debouncedSearch, contexto],
+    queryFn: () => api.filtrosMarcas(debouncedSearch, 30, contexto),
     enabled: open,
     staleTime: 60_000,
   })
@@ -156,7 +166,11 @@ export function MarcaCombobox({
                         ${' '}
                         {debouncedSearch
                           ? `coincidencias (${optionsQuery.data?.data.length})`
-                          : 'top marcas'}
+                          : (contexto?.q || contexto?.categoria)
+                            // Con filtros activos ya no son "las top" del padrón
+                            // sino las que tienen productos en ese contexto.
+                            ? `marcas disponibles (${optionsQuery.data?.data.length})`
+                            : 'top marcas'}
                       </span>
                     }
                   >

@@ -22,26 +22,20 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { sql } from 'kysely';
 import { db } from '../db.js';
-import type { EstadoCertificacion } from '../../../src/db/types.js';
+import { parseFiltros, whereFiltros } from '../lib/filtros-productos.js';
 
 // ── Constantes de validación ──────────────────────────────────────────────
 
 // Claves de ordenamiento aceptadas. La expresión SQL real se elige en .orderBy() abajo.
-//   nombre → ordena por nombre_fantasia (o nombre_producto si está vacío)
-//   marca  → ordena por nombre de la marca
+//   relevancia → cercanía al término buscado (ver más abajo). Requiere `q`.
+//   nombre     → ordena por nombre_fantasia (o nombre_producto si está vacío)
+//   marca      → ordena por nombre de la marca
 const SORT_COLUMNS = {
+  relevancia: true,
   nombre: true,
   marca: true,
 } as const;
 type SortKey = keyof typeof SORT_COLUMNS;
-
-const VALID_ESTADOS: readonly EstadoCertificacion[] = [
-  'vigente',
-  'baja_permanente',
-  'baja_provisoria',
-  'en_tramite',
-  'desconocido',
-];
 
 const PLACEHOLDER_FANTASIA = new Set([
   'no registra',
@@ -80,43 +74,15 @@ interface Querystring {
 }
 
 // Resuelve un slug de categoría → lista de id_categoria a filtrar.
-// Si el slug pertenece a un padre, incluye al padre y a todas sus hijas.
-// Si es una hoja, devuelve sólo ese id. Si no existe, devuelve [].
-async function resolveCategoriaIds(slug: string): Promise<number[]> {
-  const padre = await db
-    .selectFrom('categorias')
-    .where('slug', '=', slug)
-    .select(['id_categoria'])
-    .executeTakeFirst();
-  if (!padre) return [];
-
-  const hijas = await db
-    .selectFrom('categorias')
-    .where('id_padre', '=', padre.id_categoria)
-    .select(['id_categoria'])
-    .execute();
-
-  return [padre.id_categoria, ...hijas.map((h) => h.id_categoria)];
-}
-
 // ── Route ─────────────────────────────────────────────────────────────────
 
 const productosRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get<{ Querystring: Querystring }>('/productos', async (req) => {
-    const q = (req.query.q ?? '').trim();
-
-    const marcaRaw = Number.parseInt(req.query.marca ?? '', 10);
-    const marcaId = Number.isFinite(marcaRaw) && marcaRaw > 0 ? marcaRaw : null;
-
-    const estadoRaw = req.query.estado;
-    const estado = estadoRaw && (VALID_ESTADOS as readonly string[]).includes(estadoRaw)
-      ? (estadoRaw as EstadoCertificacion)
-      : null;
-
-    const categoriaSlug = (req.query.categoria ?? '').trim() || null;
-    const categoriaIds = categoriaSlug
-      ? await resolveCategoriaIds(categoriaSlug)
-      : null;
+    // Los filtros se parsean y se aplican con la misma lógica que usan los
+    // endpoints de facetas, para que los desplegables nunca ofrezcan opciones
+    // sin resultados (ver lib/filtros-productos.ts).
+    const filtros = await parseFiltros(req.query);
+    const q = filtros.q ?? '';
 
     const sort: SortKey = (req.query.sort && req.query.sort in SORT_COLUMNS)
       ? (req.query.sort as SortKey)
@@ -127,35 +93,12 @@ const productosRoutes: FastifyPluginAsync = async (fastify) => {
     const pageSize = parseIntSafe(req.query.pageSize, 50, 1, 200);
 
     // Base query (con joins). Inmutable en Kysely → reusable para count + data.
-    let base = db
+    // Los alias `p` y `m` son los que esperan las condiciones compartidas.
+    // Acá no se excluye ninguna faceta: el listado sí aplica todos los filtros.
+    const base = db
       .selectFrom('productos as p')
-      .innerJoin('marcas as m', 'm.id_marca', 'p.id_marca');
-
-    if (q) {
-      const term = `%${q}%`;
-      base = base.where((eb) =>
-        eb.or([
-          eb('p.nombre_producto', 'like', term),
-          eb('p.nombre_fantasia', 'like', term),
-          eb('p.numero_registro', 'like', term),
-          eb('m.nombre_marca', 'like', term),
-        ]),
-      );
-    }
-    if (marcaId !== null) {
-      base = base.where('m.id_marca', '=', marcaId);
-    }
-    if (estado) {
-      base = base.where('p.estado_certificacion', '=', estado);
-    }
-    if (categoriaIds !== null) {
-      // Slug inválido → forzar resultado vacío. Slug válido → filtrar por ids.
-      if (categoriaIds.length === 0) {
-        base = base.where(sql<boolean>`1 = 0`);
-      } else {
-        base = base.where('p.id_categoria', 'in', categoriaIds);
-      }
-    }
+      .innerJoin('marcas as m', 'm.id_marca', 'p.id_marca')
+      .where(whereFiltros(filtros));
 
     // Count
     const countRow = await base
@@ -163,26 +106,53 @@ const productosRoutes: FastifyPluginAsync = async (fastify) => {
       .executeTakeFirst();
     const total = Number(countRow?.total ?? 0);
 
+    // Expresión del nombre visible: fantasía si existe, si no la denominación.
+    // COLLATE NOCASE para alfabético case-insensitive en SQLite.
+    const nombreExpr = sql`COALESCE(NULLIF(TRIM(p.nombre_fantasia), ''), p.nombre_producto) COLLATE NOCASE`;
+
     // Data
-    const rows = await base
-      .select([
-        'p.id_producto',
-        'p.nombre_producto',
-        'p.nombre_fantasia',
-        'p.numero_registro',
-        'p.estado_certificacion',
-        'p.updated_at',
-        'm.id_marca',
-        'm.nombre_marca',
-      ])
-      .orderBy(
-        sort === 'nombre'
-          // Expresión: nombre_fantasia (si no es null/vacío) o nombre_producto.
-          // COLLATE NOCASE para alfabético case-insensitive en SQLite.
-          ? sql`COALESCE(NULLIF(TRIM(p.nombre_fantasia), ''), p.nombre_producto) COLLATE NOCASE`
-          : sql`m.nombre_marca COLLATE NOCASE`,
-        order,
-      )
+    let dataQuery = base.select([
+      'p.id_producto',
+      'p.nombre_producto',
+      'p.nombre_fantasia',
+      'p.numero_registro',
+      'p.estado_certificacion',
+      'p.updated_at',
+      'm.id_marca',
+      'm.nombre_marca',
+    ]);
+
+    // ── Orden por relevancia ─────────────────────────────────────────────
+    // ANMAT no usa nombre_producto como denominación corta sino como
+    // descripción larga de composición (66 caracteres en promedio, hasta 369).
+    // Por eso buscar "harina de arroz" devuelve tanto los productos que SON
+    // harina de arroz como los cientos que la llevan entre sus ingredientes:
+    //
+    //   "Harina de arroz – Libre de gluten"                        ← es
+    //   "Premezcla a base de fécula de mandioca y harina de arroz" ← contiene
+    //
+    // Lo que los separa es la POSICIÓN del término, no el campo: la
+    // denominación arranca con lo que el producto es y recién después enumera
+    // la composición. De ahí que el primer criterio sea "empieza con".
+    //
+    // Es ordenamiento, no filtro: no se oculta ningún resultado, solo se
+    // ordena para que lo buscado quede primero.
+    if (sort === 'relevancia' && q) {
+      const empiezaCon = `${q}%`;
+      const contiene = `%${q}%`;
+      dataQuery = dataQuery.orderBy(
+        sql<number>`CASE
+          WHEN p.nombre_producto LIKE ${empiezaCon} THEN 0
+          WHEN TRIM(COALESCE(p.nombre_fantasia, '')) <> '' AND p.nombre_fantasia LIKE ${empiezaCon} THEN 1
+          WHEN m.nombre_marca LIKE ${contiene} OR p.numero_registro LIKE ${contiene} THEN 2
+          ELSE 3
+        END`,
+        'asc',
+      );
+    }
+
+    const rows = await dataQuery
+      .orderBy(sort === 'marca' ? sql`m.nombre_marca COLLATE NOCASE` : nombreExpr, order)
       .orderBy('p.id_producto', 'asc') // tiebreaker estable para paginación
       .limit(pageSize)
       .offset((page - 1) * pageSize)

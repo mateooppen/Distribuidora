@@ -17,6 +17,9 @@ import {
   type CategoriaFiltro,
 } from '@/lib/api'
 
+// Columnas ordenables desde los encabezados de la tabla. `relevancia` no está
+// acá a propósito: no es una columna, es el orden por defecto cuando hay
+// búsqueda activa (ver `sortKey` más abajo).
 const SORT_IDS: readonly SortKey[] = ['nombre', 'marca']
 
 export function ProductosPage() {
@@ -65,9 +68,9 @@ export function ProductosPage() {
     )
   }
 
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: 'nombre', desc: false },
-  ])
+  // Vacío = sin columna elegida por el usuario. Con búsqueda activa eso
+  // significa "ordenar por relevancia"; sin búsqueda, alfabético por nombre.
+  const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 15,
@@ -80,19 +83,40 @@ export function ProductosPage() {
     setPagination((p) => ({ ...p, pageIndex: 0 }))
   }, [debouncedSearch, marca, categoria])
 
-  // Lista plana de categorías para el combobox
+  // Contexto de filtrado que se pasa a los desplegables para que ofrezcan solo
+  // valores con resultados. Cada faceta omite su propio filtro del lado de la
+  // API, así se puede saltar de una marca (o categoría) a otra sin limpiar.
+  const contexto = useMemo(
+    () => ({
+      q: debouncedSearch.trim() || undefined,
+      marca,
+      categoria,
+      estado: 'vigente' as const,
+    }),
+    [debouncedSearch, marca, categoria],
+  )
+
+  // Categorías con su conteo en contexto. Se refetchea al cambiar los filtros.
   const { data: categoriasData } = useQuery({
-    queryKey: ['filtros-categorias'],
-    queryFn: api.filtrosCategorias,
-    staleTime: 10 * 60 * 1000,
+    queryKey: ['filtros-categorias', contexto],
+    queryFn: () => api.filtrosCategorias(contexto),
+    staleTime: 60 * 1000,
+    placeholderData: keepPreviousData,
   })
   const categorias: CategoriaFiltro[] = categoriasData?.data ?? []
 
   // ── Mapeo de sorting → API ───────────────────────────────────────────
-  const sortKey: SortKey =
+  // Si el usuario eligió una columna, manda esa. Si no eligió ninguna:
+  // relevancia cuando hay término de búsqueda, alfabético cuando no lo hay.
+  // Buscar "harina de arroz" y recibir el resultado alfabético no sirve de
+  // nada: hay cientos de productos que la mencionan entre sus ingredientes.
+  const columnaElegida =
     sorting[0] && (SORT_IDS as readonly string[]).includes(sorting[0].id)
       ? (sorting[0].id as SortKey)
-      : 'nombre'
+      : null
+
+  const sortKey: SortKey =
+    columnaElegida ?? (debouncedSearch.trim() ? 'relevancia' : 'nombre')
   const sortOrder = sorting[0]?.desc ? 'desc' : 'asc'
 
   // ── Query ────────────────────────────────────────────────────────────
@@ -175,6 +199,7 @@ export function ProductosPage() {
           categoria={categoria}
           onCategoriaChange={setCategoria}
           categorias={categorias}
+          contexto={contexto}
         />
 
         {productosQuery.error && (

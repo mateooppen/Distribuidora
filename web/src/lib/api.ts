@@ -18,7 +18,10 @@ export type EstadoCertificacion =
   | 'en_tramite'
   | 'desconocido'
 
-export type SortKey = 'nombre' | 'marca'
+// `relevancia` ordena por cercanía al término buscado: primero los productos
+// cuya denominación EMPIEZA con el término (los que son eso), después los que
+// solo lo mencionan en su composición. Solo aplica si se manda `q`.
+export type SortKey = 'relevancia' | 'nombre' | 'marca'
 export type SortOrder = 'asc' | 'desc'
 
 export interface ProductoListItem {
@@ -77,6 +80,20 @@ export interface CategoriaFiltro {
   nombre: string
   slug: string
   orden: number
+  /** Productos que caen en esta categoría DENTRO del contexto filtrado. */
+  total_productos: number
+}
+
+/**
+ * Contexto de filtrado que se manda a los endpoints de facetas para que
+ * ofrezcan solo valores con resultados. Cada faceta omite su propio filtro
+ * (la API lo ignora), así se puede saltar de una marca a otra sin limpiar.
+ */
+export interface ContextoFiltros {
+  q?: string
+  marca?: number | null
+  categoria?: string | null
+  estado?: EstadoCertificacion | null
 }
 
 export interface FiltrosCategoriasResponse {
@@ -282,8 +299,16 @@ export const api = {
   dashboardCategoriasJerarquia: () =>
     get<DashboardCategoriasResponse>('/api/dashboard/categorias-jerarquia'),
 
-  filtrosCategorias: () =>
-    get<FiltrosCategoriasResponse>('/api/filtros/categorias'),
+  // Facetas: devuelven solo valores con resultados dentro del contexto.
+  filtrosCategorias: (ctx: ContextoFiltros = {}) => {
+    const query = buildQuery({
+      q: ctx.q,
+      marca: ctx.marca,
+      estado: ctx.estado,
+      // `categoria` se omite a propósito: es la faceta propia de este endpoint.
+    })
+    return get<FiltrosCategoriasResponse>(`/api/filtros/categorias${query}`)
+  },
 
   productos: (filters: ProductosFilters = {}) => {
     const query = buildQuery({
@@ -315,8 +340,20 @@ export const api = {
 
   marcaById: (id: number) => get<MarcaPorIdResponse>(`/api/marcas/${id}`),
 
-  filtrosMarcas: (q = '', limit = 30) => {
-    const query = buildQuery({ q: q.trim() || undefined, limit })
+  /**
+   * `nombre` es el texto tipeado en el autocomplete de marca; `ctx` es el
+   * contexto de filtrado de productos. Son cosas distintas: uno busca marcas
+   * por su nombre, el otro acota el universo de marcas ofrecidas.
+   */
+  filtrosMarcas: (nombre = '', limit = 30, ctx: ContextoFiltros = {}) => {
+    const query = buildQuery({
+      nombre: nombre.trim() || undefined,
+      limit,
+      q: ctx.q,
+      categoria: ctx.categoria,
+      estado: ctx.estado,
+      // `marca` se omite a propósito: es la faceta propia de este endpoint.
+    })
     return get<MarcasResponse>(`/api/filtros/marcas${query}`)
   },
 

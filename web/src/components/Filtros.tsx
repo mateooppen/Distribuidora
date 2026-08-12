@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { MarcaCombobox } from '@/components/MarcaCombobox'
-import { type CategoriaFiltro } from '@/lib/api'
+import { type CategoriaFiltro, type ContextoFiltros } from '@/lib/api'
 
 const TODOS = '__todos__'
 
@@ -20,7 +20,10 @@ export interface FiltrosProps {
   onMarcaChange: (v: number | null) => void
   categoria: string | null
   onCategoriaChange: (v: string | null) => void
+  /** Ya vienen con el conteo en contexto; las de conteo 0 se ocultan acá. */
   categorias: CategoriaFiltro[]
+  /** Filtros activos, para acotar las opciones que ofrece cada desplegable. */
+  contexto?: ContextoFiltros
 }
 
 // Label común para cada filtro — estilo "$ ..." consistente con la home
@@ -43,12 +46,33 @@ export function Filtros({
   categoria,
   onCategoriaChange,
   categorias,
+  contexto,
 }: FiltrosProps) {
   const tieneFiltros = !!search || marca !== null || categoria !== null
 
-  const padres = categorias.filter((c) => c.id_padre === null)
   const hijasPor = (idPadre: number) =>
     categorias.filter((c) => c.id_padre === idPadre)
+
+  // Total de un padre = lo suyo más lo de sus hijas, igual que cuando se
+  // filtra por su slug (la API resuelve padre → padre + hijas).
+  const totalDe = (padre: CategoriaFiltro) =>
+    padre.total_productos +
+    hijasPor(padre.id_categoria).reduce((s, h) => s + h.total_productos, 0)
+
+  // Poda: se ocultan las categorías sin resultados en el contexto actual, para
+  // no ofrecer opciones que devuelven la lista vacía. Un padre sobrevive si él
+  // o alguna de sus hijas tiene resultados.
+  //
+  // Excepción: la categoría seleccionada nunca se oculta. Al elegirla, el
+  // contexto pasa a incluirla y el resto se va a cero; si la escondiéramos,
+  // el desplegable quedaría mostrando un valor inexistente en su lista.
+  const visible = (c: CategoriaFiltro) =>
+    c.total_productos > 0 || c.slug === categoria
+
+  const padres = categorias
+    .filter((c) => c.id_padre === null)
+    .filter((p) => totalDe(p) > 0 || p.slug === categoria ||
+      hijasPor(p.id_categoria).some((h) => h.slug === categoria))
 
   return (
     <div
@@ -96,6 +120,7 @@ export function Filtros({
             value={marca}
             onChange={onMarcaChange}
             placeholder="Todas las marcas"
+            contexto={contexto}
           />
         </div>
 
@@ -118,17 +143,28 @@ export function Filtros({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={TODOS}>Todas las categorías</SelectItem>
+              {padres.length === 0 && (
+                <div
+                  className="px-2 py-3 text-xs font-mono"
+                  style={{ color: 'hsl(var(--text-muted))' }}
+                >
+                  sin categorías con resultados
+                </div>
+              )}
               {padres.map((padre) => {
-                const hijas = hijasPor(padre.id_categoria)
+                const hijas = hijasPor(padre.id_categoria).filter(visible)
                 return (
                   <SelectGroup key={padre.id_categoria}>
                     <SelectLabel className="font-semibold">{padre.nombre}</SelectLabel>
                     <SelectItem value={padre.slug}>
-                      — Todas ({padre.nombre})
+                      — Todas ({totalDe(padre).toLocaleString('es-AR')})
                     </SelectItem>
                     {hijas.map((h) => (
                       <SelectItem key={h.id_categoria} value={h.slug}>
-                        &nbsp;&nbsp;{h.nombre}
+                        &nbsp;&nbsp;{h.nombre}{' '}
+                        <span style={{ color: 'hsl(var(--text-muted))' }}>
+                          ({h.total_productos.toLocaleString('es-AR')})
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectGroup>
