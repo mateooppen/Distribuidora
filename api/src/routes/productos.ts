@@ -23,6 +23,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { sql } from 'kysely';
 import { db } from '../db.js';
 import { parseFiltros, whereFiltros } from '../lib/filtros-productos.js';
+import { cleanFantasia } from '../lib/nombre-producto.js';
 
 // ── Constantes de validación ──────────────────────────────────────────────
 
@@ -36,23 +37,6 @@ const SORT_COLUMNS = {
   marca: true,
 } as const;
 type SortKey = keyof typeof SORT_COLUMNS;
-
-const PLACEHOLDER_FANTASIA = new Set([
-  'no registra',
-  'no aplica',
-  'sin fantasia',
-  'sin nombre',
-  'n/a',
-  '-',
-]);
-
-function cleanFantasia(s: string | null): string | null {
-  if (!s) return null;
-  const trimmed = s.trim();
-  if (!trimmed) return null;
-  if (PLACEHOLDER_FANTASIA.has(trimmed.toLowerCase())) return null;
-  return trimmed;
-}
 
 // ── Helpers de parsing ────────────────────────────────────────────────────
 

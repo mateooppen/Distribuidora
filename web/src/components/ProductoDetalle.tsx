@@ -16,6 +16,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { BotonAgregarLista } from '@/components/BotonAgregarLista'
 import {
   api,
   type Aptitud,
@@ -512,6 +513,7 @@ export function ProductoDetalle({ productoId, onClose }: ProductoDetalleProps) {
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <SheetContent
         side="right"
+        data-panel-lateral=""
         className="w-full sm:max-w-2xl overflow-y-auto p-0"
         style={{
           background: 'hsl(var(--bg-surface))',
@@ -570,6 +572,26 @@ export function ProductoDetalle({ productoId, onClose }: ProductoDetalleProps) {
             >
               {data.data.nombre_producto}
             </SheetDescription>
+          )}
+
+          {/*
+           * Agregar a la lista desde acá cubre el caso "leo la ficha completa y
+           * después decido". Vive en el header sticky para no tener que scrollear
+           * de vuelta hasta arriba después de revisar el detalle.
+           */}
+          {data && (
+            <div className="pt-3">
+              <BotonAgregarLista
+                variante="completo"
+                producto={{
+                  id_producto: data.data.id_producto,
+                  nombre_producto: data.data.nombre_producto,
+                  nombre_fantasia: data.data.nombre_fantasia,
+                  numero_registro: data.data.numero_registro,
+                  nombre_marca: data.data.marca.nombre_marca,
+                }}
+              />
+            </div>
           )}
         </SheetHeader>
 

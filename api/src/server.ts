@@ -17,6 +17,7 @@ import filtrosRoutes from './routes/filtros.js';
 import marcasRoutes from './routes/marcas.js';
 import dashboardRoutes from './routes/dashboard.js';
 import adminRoutes from './routes/admin.js';
+import listaRoutes from './routes/lista.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -57,6 +58,7 @@ await app.register(filtrosRoutes, { prefix: '/api' });
 await app.register(marcasRoutes, { prefix: '/api' });
 await app.register(dashboardRoutes, { prefix: '/api' });
 await app.register(adminRoutes, { prefix: '/api' });
+await app.register(listaRoutes, { prefix: '/api' });
 
 // SPA fallback: cualquier ruta que no sea /api devuelve index.html (solo en prod)
 if (SERVE_STATIC) {
