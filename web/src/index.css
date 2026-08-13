@@ -209,13 +209,18 @@
  * Fix Sheet (Radix Dialog): reemplazo keyframe-animation por transition
  * para evitar el bug de tailwindcss-animate@1.0.7 donde las animaciones
  * quedan en running con currentTime=0.
+ *
+ * Acotado a [data-panel-lateral] y NO a [role="dialog"] en general: un Dialog
+ * centrado se posiciona con translate(-50%, -50%), así que forzarle
+ * translateX(0) lo mandaría fuera de lugar. El atributo lo pone cada panel que
+ * entra deslizándose desde la derecha (ProductoDetalle, ListaPedidoPanel).
  */
-[role="dialog"][data-state="open"] {
+[data-panel-lateral][data-state="open"] {
   animation: none !important;
   transform: translateX(0) !important;
   transition: transform 0.3s ease-out !important;
 }
-[role="dialog"][data-state="closed"] {
+[data-panel-lateral][data-state="closed"] {
   animation: none !important;
   transform: translateX(100%) !important;
   transition: transform 0.25s ease-in !important;
@@ -224,10 +229,10 @@
 
 /*
  * Oculta el botón Close por defecto de Radix (posicionado absoluto en top-right
- * del SheetContent). El panel de detalle del producto provee su propio botón
- * de cerrar dentro del header sticky, mejor visible en mobile.
+ * del SheetContent). Los paneles laterales proveen su propio botón de cerrar
+ * dentro del header sticky, mejor visible en mobile.
  */
-[role="dialog"] > button[type="button"][aria-label="Close"],
-[role="dialog"] > .absolute.right-4.top-4 {
+[data-panel-lateral] > button[type="button"][aria-label="Close"],
+[data-panel-lateral] > .absolute.right-4.top-4 {
   display: none !important;
 }

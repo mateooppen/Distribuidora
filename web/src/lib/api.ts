@@ -269,6 +269,20 @@ export interface UpdateStatusResponse {
   ultimo_run: SyncRun | null
 }
 
+// ── Lista de pedido ───────────────────────────────────────────────────────
+
+export interface ListaResolverResponse {
+  /** Productos con datos frescos de la base. */
+  encontrados: ProductoListItem[]
+  /** RNPA que ya no están en el catálogo (el producto se dio de baja upstream). */
+  faltantes: string[]
+}
+
+export interface ArchivoDescargado {
+  blob: Blob
+  filename: string
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 async function get<T>(path: string): Promise<T> {
@@ -277,6 +291,36 @@ async function get<T>(path: string): Promise<T> {
     throw new Error(`${res.status} ${res.statusText} — ${path}`)
   }
   return (await res.json()) as T
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    throw new Error(await mensajeDeError(res, path))
+  }
+  return (await res.json()) as T
+}
+
+/** Prefiere el `error` que manda la API; si no hay JSON, cae al status. */
+async function mensajeDeError(res: Response, path: string): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: string }
+    if (body?.error) return body.error
+  } catch {
+    // Respuesta sin cuerpo JSON — se usa el status.
+  }
+  return `${res.status} ${res.statusText} — ${path}`
+}
+
+/** Lee el nombre de archivo del Content-Disposition. */
+function filenameDe(res: Response, fallback: string): string {
+  const cd = res.headers.get('Content-Disposition')
+  const match = cd?.match(/filename="([^"]+)"/)
+  return match?.[1] ?? fallback
 }
 
 function buildQuery(params: Record<string, unknown>): string {
@@ -360,4 +404,35 @@ export const api = {
   // Solo lectura. No hay método para disparar la actualización: la base se
   // regenera en build time, no en runtime (ver api/src/routes/admin.ts).
   syncStatus: () => get<UpdateStatusResponse>('/api/admin/update/status'),
+
+  /**
+   * Revalida la lista de pedido contra la base actual. La lista se guarda en el
+   * navegador por RNPA y la base se regenera entera en cada release, así que los
+   * nombres del snapshot local pueden haber quedado viejos y algún producto
+   * puede haber desaparecido del catálogo.
+   *
+   * Es POST y no GET porque una lista puede traer 300 RNPAs.
+   */
+  listaResolver: (rnpas: string[]) =>
+    post<ListaResolverResponse>('/api/lista/resolver', { rnpas }),
+
+  /**
+   * Genera el Excel del pedido. El armado ocurre en la API para no sumarle la
+   * librería de xlsx al bundle del frontend.
+   */
+  listaExport: async (rnpas: string[]): Promise<ArchivoDescargado> => {
+    const path = '/api/lista/export'
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rnpas }),
+    })
+    if (!res.ok) {
+      throw new Error(await mensajeDeError(res, path))
+    }
+    return {
+      blob: await res.blob(),
+      filename: filenameDe(res, 'lista-pedido.xlsx'),
+    }
+  },
 }

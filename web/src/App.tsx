@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import { HomePage } from '@/pages/HomePage'
 import { ProductosPage } from '@/pages/ProductosPage'
 import { MarcasPage } from '@/pages/MarcasPage'
+import { ListaPage } from '@/pages/ListaPage'
+import { BotonListaNavbar } from '@/components/BotonListaNavbar'
+import { ListaPedidoProvider } from '@/components/ListaPedidoProvider'
 import { cn } from '@/lib/utils'
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -73,28 +76,35 @@ function NavBar({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => v
        * el toggle queda al final. Sin posicionamiento absoluto en mobile para
        * evitar que los links se monten sobre el logo en pantallas chicas.
        */}
-      <div className="relative mx-auto px-4 sm:px-6 max-w-[1400px] h-14 flex items-center gap-3 sm:gap-0">
+      {/* Paddings y gaps más chicos en mobile: con "Lista" y su contador de
+        * hasta 3 dígitos, a 375px faltaban 14px y el último destino quedaba
+        * fuera del área visible del nav. */}
+      <div className="relative mx-auto px-3 sm:px-6 max-w-[1400px] h-14 flex items-center gap-2 sm:gap-0">
 
-        {/* Logotipo — izquierda */}
-        <div className="flex items-baseline gap-1 select-none shrink-0">
-          <span className="font-mono text-[15px] font-semibold tracking-tight text-foreground leading-none">
+        {/* Logotipo — izquierda. Es link a inicio: eso permite sacar "Inicio"
+          * del nav en mobile, donde el ancho no alcanzaba para los cuatro
+          * destinos y "Lista" quedaba fuera del área visible. */}
+        <Link to="/" className="flex items-baseline gap-1 select-none shrink-0">
+          <span className="font-mono text-[13px] sm:text-[15px] font-semibold tracking-tight text-foreground leading-none">
             San Felipa
           </span>
           {/* /sin-tacc se oculta en mobile chico para liberar espacio */}
           <span className="hidden xs:inline font-mono text-[13px] font-normal text-muted-foreground/60 leading-none">
             /sin-tacc
           </span>
-        </div>
+        </Link>
 
         {/*
          * Nav — centro absoluto en desktop, flujo normal en mobile.
          * sm:absolute sm:left-1/2 sm:-translate-x-1/2 activa el centrado solo
          * desde sm (≥640px) hacia arriba.
          */}
-        <nav className="flex items-center gap-3 sm:gap-6 sm:absolute sm:left-1/2 sm:-translate-x-1/2 overflow-x-auto">
-          <NavLink to="/" end className={linkClass}>Inicio</NavLink>
+        <nav className="flex items-center gap-2 sm:gap-6 sm:absolute sm:left-1/2 sm:-translate-x-1/2 overflow-x-auto">
+          {/* Redundante con el logo, que también lleva a inicio. */}
+          <NavLink to="/" end className={(p) => cn('hidden sm:inline-flex', linkClass(p))}>Inicio</NavLink>
           <NavLink to="/productos" className={linkClass}>Productos</NavLink>
           <NavLink to="/marcas" className={linkClass}>Marcas</NavLink>
+          <BotonListaNavbar className={linkClass} />
         </nav>
 
         {/* Toggle tema — derecha */}
@@ -123,18 +133,21 @@ function App() {
   const [theme, toggleTheme] = useTheme()
 
   return (
-    <BrowserRouter>
-      <div className="min-h-screen" style={{ background: 'hsl(var(--bg-base))' }}>
-        <NavBar theme={theme} onToggleTheme={toggleTheme} />
-        <main>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/productos" element={<ProductosPage />} />
-            <Route path="/marcas" element={<MarcasPage />} />
-          </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+    <ListaPedidoProvider>
+      <BrowserRouter>
+        <div className="min-h-screen" style={{ background: 'hsl(var(--bg-base))' }}>
+          <NavBar theme={theme} onToggleTheme={toggleTheme} />
+          <main>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/productos" element={<ProductosPage />} />
+              <Route path="/marcas" element={<MarcasPage />} />
+              <Route path="/lista" element={<ListaPage />} />
+            </Routes>
+          </main>
+        </div>
+      </BrowserRouter>
+    </ListaPedidoProvider>
   )
 }
 

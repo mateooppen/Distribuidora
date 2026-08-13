@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { PaginationState, SortingState } from '@tanstack/react-table'
+import { AgregarResultadosLista } from '@/components/AgregarResultadosLista'
 import { Filtros } from '@/components/Filtros'
 import { ProductosTable } from '@/components/ProductosTable'
 import { ProductoDetalle } from '@/components/ProductoDetalle'
@@ -216,6 +217,19 @@ export function ProductosPage() {
               : 'desconocido'}
           </div>
         )}
+
+        {/* Agregado masivo de todos los resultados de la búsqueda actual. */}
+        <AgregarResultadosLista
+          filtros={{
+            q: filters.q,
+            marca: filters.marca,
+            estado: filters.estado,
+            categoria: filters.categoria,
+            sort: filters.sort,
+            order: filters.order,
+          }}
+          total={total ?? 0}
+        />
 
         <ProductosTable
           data={productosQuery.data?.data ?? []}
