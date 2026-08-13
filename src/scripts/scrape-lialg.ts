@@ -445,6 +445,14 @@ async function main(): Promise<void> {
   // retomar la paginación y volvió al principio del listado.
   const rnpaVistos = new Set<string>(products.map((p) => p.rnpa).filter(Boolean));
 
+  // Tamaño de página que usa el GridView, tomado de la primera página en vez
+  // de hardcodearlo: si ANMAT lo cambia, la detección de fin sigue andando.
+  const tamPagina = products.length;
+
+  // Productos que trajo la última página leída. Es lo que permite distinguir
+  // un fin de listado legítimo de una caída real (ver el manejo de status).
+  let ultimaCantidad = products.length;
+
   let page = 2;
   // Reconexiones consecutivas fallidas. Se resetea al retomar bien.
   let reintentos = 0;
@@ -460,24 +468,44 @@ async function main(): Promise<void> {
 
     const res = await httpsRequest('POST', '/Home', pageBody, postHeaders(state, false));
 
-    // Un status distinto de 200 (típicamente 302) NO es el fin del listado:
-    // es ANMAT cortando la sesión, cosa que pasa a los pocos minutos de
-    // scrapeo. Antes se hacía `break` acá, y el pipeline seguía adelante
-    // publicando una base truncada sin que nada fallara: así se perdieron
-    // ~10.000 productos en la corrida del 2026-08-12, que cortó en la página
-    // 515 de ~710. Ahora se reconecta y se retoma desde la misma página.
+    // Ante un status distinto de 200 (siempre 302) hay que distinguir dos
+    // situaciones que se ven idénticas desde acá:
+    //
+    //   a) Fin del listado. ANMAT responde 302 al pedir una página que no
+    //      existe. Es la forma NORMAL de terminar el recorrido.
+    //   b) Caída de sesión a mitad del recorrido, que dejaría el scrape
+    //      truncado.
+    //
+    // Lo que las separa es cuántos productos trajo la página anterior: el
+    // GridView devuelve páginas completas hasta la última, que viene parcial.
+    // Si la anterior vino incompleta, ya estábamos en el final y el 302 es
+    // esperable. Si vino llena, había más para leer y el corte es anómalo.
+    //
+    // (La corrida del 2026-08-12 cortó en la página 515 con 302; la 514 había
+    // traído 18 de 50, o sea que era la última y el listado estaba completo.)
     if (res.status !== 200) {
+      if (ultimaCantidad < tamPagina) {
+        log.info(
+          `Página ${page}: status ${res.status} y la anterior vino parcial ` +
+          `(${ultimaCantidad}/${tamPagina}) → fin del listado.`,
+        );
+        break;
+      }
+
       reintentos++;
       if (reintentos > MAX_REINTENTOS_SESION) {
         throw new Error(
-          `Página ${page}: status ${res.status} tras ${MAX_REINTENTOS_SESION} reconexiones. ` +
-          `El scrape quedó incompleto (${allProducts.length} productos). Se aborta a propósito: ` +
-          `es preferible fallar y conservar la base anterior que publicar uno parcial.`,
+          `Página ${page}: status ${res.status} tras ${MAX_REINTENTOS_SESION} reconexiones, ` +
+          `y la página anterior vino completa (${ultimaCantidad}/${tamPagina}), así que ` +
+          `faltaban datos. El scrape quedó incompleto (${allProducts.length} productos). ` +
+          `Se aborta a propósito: es preferible fallar y conservar la base anterior ` +
+          `que publicar una parcial.`,
         );
       }
 
       log.warn(
-        `Página ${page}: status ${res.status}. Sesión caída, ` +
+        `Página ${page}: status ${res.status} con la anterior completa ` +
+        `(${ultimaCantidad}/${tamPagina}) → posible caída de sesión, ` +
         `reconectando (intento ${reintentos}/${MAX_REINTENTOS_SESION})...`,
       );
       await delay(DELAY_MS * 5);
@@ -521,6 +549,9 @@ async function main(): Promise<void> {
       log.info(`Página ${page}: paginación retomada con éxito.`);
       reintentos = 0;
     }
+
+    // Alimenta la detección de fin de listado de la próxima vuelta.
+    ultimaCantidad = r.products.length;
 
     for (const p of r.products) {
       if (p.rnpa) rnpaVistos.add(p.rnpa);
